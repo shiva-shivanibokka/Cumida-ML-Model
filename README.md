@@ -21,6 +21,7 @@ The project is structured as four sequential Jupyter notebooks, each handling on
 - [Key Design Decisions](#key-design-decisions)
 - [Libraries Used](#libraries-used)
 - [Results Summary](#results-summary)
+- [Known Issues and Fixes](#known-issues-and-fixes)
 
 ---
 
@@ -239,6 +240,8 @@ RFE needs a model that produces a feature importance score for each feature afte
 **Step 3 — Save outputs**  
 The four files are saved: `X_train.csv`, `X_test.csv`, `y_train.csv`, `y_test.csv`. A summary table is printed showing the feature count at each step, how many probes were removed at each stage, and the final percentage of the original probes that were kept.
 
+> **Note:** An earlier version of this notebook applied SMOTE oversampling to the training set at this stage. This was removed — see [Known Issues and Fixes](#known-issues-and-fixes) for the full explanation.
+
 ---
 
 ## Notebook 3 — Logistic Regression
@@ -371,7 +374,7 @@ The same evaluation suite as Notebook 3:
 
 ### Model Comparison — Logistic Regression vs Gradient Boosting
 
-The final section of Notebook 4 compares both models side by side. Logistic Regression is re-fitted using the best parameters found in Notebook 3 (which the `LR_BEST_PARAMS` variable at the top of the comparison cell). Using the same `X_train.csv` and `X_test.csv` files guarantees a fair comparison — both models see exactly the same data.
+The final section of Notebook 4 compares both models side by side. Logistic Regression is re-tuned using a fresh `GridSearchCV` with the same search space as Notebook 3, run directly inside Notebook 4. This ensures the comparison always uses the best parameters for the current data rather than hardcoded values from a previous run. Using the same `X_train.csv` and `X_test.csv` files guarantees a fair comparison — both models see exactly the same data.
 
 Four metrics are compared:
 
@@ -450,32 +453,20 @@ This dataset is already clean and fully normalised, so the first three steps rem
 
 **30 probes selected by RFE:** `201268_at`, `201293_x_at`, `202544_at`, `202824_s_at`, `202868_s_at`, `202983_at`, `203316_s_at`, `204428_s_at`, `204641_at`, `205307_s_at`, `205554_s_at`, `206938_at`, `207407_x_at`, `207584_at`, `207608_x_at`, `207609_s_at`, `207995_s_at`, `208491_at`, `209365_s_at`, `209614_at`, `209714_s_at`, `209976_s_at`, `210481_s_at`, `211295_x_at`, `213629_x_at`, `214320_x_at`, `214677_x_at`, `216661_x_at`, `217022_s_at`, `217546_at`
 
-### SMOTE (Notebook 2)
-
-| | HCC | Normal | Total |
-|---|---|---|---|
-| Before SMOTE | 144 | 141 | 285 |
-| After SMOTE | 500 | 500 | 1,000 |
-
-The training set grows from 285 to 1,000 samples. The test set (72 samples: 37 HCC, 35 Normal) is never touched by SMOTE.
-
 ### Model Performance (Notebooks 3 and 4)
+
+> **Note:** The numbers below are from the previous version of the pipeline that included SMOTE. They will be updated after the notebooks are re-run without SMOTE. See [Known Issues and Fixes](#known-issues-and-fixes).
 
 | Model | F1 Score | ROC-AUC | Precision | Recall |
 |---|---|---|---|---|
-| Logistic Regression (baseline) | 0.9118 | 0.9745 | 0.85 | 1.00 |
-| Logistic Regression (tuned, GridSearch) | 0.8308 | 0.9081 | 0.9643 | 0.7297 |
-| Gradient Boosting (baseline) | 0.9722 | 0.9660 | 0.95 | 1.00 |
-| Gradient Boosting (tuned, BayesSearch) | **0.9722** | **0.9753** | **1.0000** | **0.9459** |
-
-Gradient Boosting outperforms Logistic Regression on every metric. The tuned Gradient Boosting model achieves perfect precision (no false positives) while catching 94.6% of all HCC cases in the test set.
+| Logistic Regression (baseline) | — | — | — | — |
+| Logistic Regression (tuned, GridSearch) | — | — | — | — |
+| Gradient Boosting (baseline) | — | — | — | — |
+| Gradient Boosting (tuned, BayesSearch) | — | — | — | — |
 
 ### Confusion Matrices
 
-**Logistic Regression (tuned):** TP=27, TN=34, FP=1, FN=10  
-**Gradient Boosting (tuned):** TP=35, TN=35, FP=0, FN=2
-
-The Gradient Boosting model misclassified only 2 samples out of 72 — both were HCC cases predicted as Normal. It made zero false positive errors, meaning every sample it flagged as HCC was genuinely cancerous.
+> Results to be updated after re-running notebooks without SMOTE.
 
 ### Best Hyperparameters
 
@@ -509,6 +500,28 @@ The probe `209365_s_at` dominates the Gradient Boosting model with an importance
 
 ---
 
+## Known Issues and Fixes
+
+### SMOTE leakage — inflated cross-validation scores
+
+**The problem**
+
+An earlier version of Notebook 2 applied SMOTE (Synthetic Minority Oversampling Technique) to the training set before saving the CSV files. SMOTE generates synthetic training samples by interpolating between real ones, and the intent was to increase the size and balance of the training set.
+
+However, when the downstream model notebooks ran GridSearchCV and BayesSearchCV, they split this already-oversampled `X_train` into cross-validation folds. Because the synthetic samples had been created from the real training points *before* the fold split, both the training and validation portions of each CV fold contained data derived from the same real samples. The model had effectively already learned the neighbourhood of the synthetic validation points during training — a form of data leakage.
+
+The consequence was that CV F1 scores were artificially inflated. Logistic Regression reported a best CV F1 of **0.9889** during GridSearch, but when that same model was evaluated on the held-out test set (which contains only real patient data the model had genuinely never seen), the F1 dropped to **0.8308** — a gap of over 15 percentage points. This large discrepancy between CV performance and test performance was the symptom that revealed the problem.
+
+**Why SMOTE was not needed in the first place**
+
+The original dataset has 181 HCC samples and 176 normal samples — a 50.7% / 49.3% split. This is essentially a perfectly balanced dataset. SMOTE is designed to correct severe class imbalance (e.g. 95% / 5%); applying it to a near-equal split provides no benefit and only introduces risk.
+
+**The fix**
+
+SMOTE was removed from Notebook 2 entirely. The notebooks now train and evaluate on the raw, real patient data without any synthetic augmentation. This ensures that cross-validation scores and test scores measure the same thing — genuine generalisation to unseen real samples — and are therefore directly comparable.
+
+---
+
 ## Interpretation
 
 These results are strong, and that reflects the nature of the dataset. GSE14520 is a clean, well-curated microarray study with a clear biological signal — HCC tumour tissue versus non-tumour liver tissue from the same patients. The gene expression differences between cancer and healthy tissue are substantial and consistent, which makes classification relatively tractable once the right features are selected.
@@ -516,7 +529,7 @@ These results are strong, and that reflects the nature of the dataset. GSE14520 
 **Why Gradient Boosting outperforms Logistic Regression here:**  
 Logistic Regression is a linear model — it can only separate classes using a straight hyperplane in the feature space. Gene expression data often has non-linear relationships and interaction effects between probes. Gradient Boosting's sequential decision trees capture these interactions directly, giving it an edge. The gap is especially visible in recall: Logistic Regression misses 10 HCC cases (27%) while Gradient Boosting misses only 2 (5.4%).
 
-**Why the tuned Logistic Regression scores lower than baseline:**  
-The baseline Logistic Regression (C=1, L2) happens to be well-calibrated for this data. The tuned model (C=100, L2) uses much weaker regularisation, which allows it to fit the SMOTE-augmented training set very tightly — a sign of mild overfitting on the synthetic samples. The CV F1 during GridSearch (0.9889) is much higher than the test F1 (0.8308), which confirms the overfitting. This is a useful teaching moment: higher CV score during tuning does not always translate to better test performance.
+**Why the tuned Logistic Regression scores lower than baseline (previous version):**  
+In the earlier version of the pipeline, SMOTE was applied to the training set before cross-validation. This caused the GridSearch CV F1 (0.9889) to be artificially inflated — the validation folds inside CV contained synthetic samples generated from the same real training points the model had already learned from. The test set, containing only real patients, then returned a much lower F1 (0.8308). This gap was the symptom that revealed the SMOTE leakage bug. See [Known Issues and Fixes](#known-issues-and-fixes) for the full explanation.
 
 
