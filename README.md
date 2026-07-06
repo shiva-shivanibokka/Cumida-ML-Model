@@ -11,6 +11,12 @@ in an interview.
 > Gradient Boosting) reducing 22,277 genes to ~20, wrapped in a tested Python
 > package and a FastAPI + Docker serving layer, runnable locally or on Colab.
 
+**🔴 Live demo (Google Cloud Run):** https://liver-hcc-579593244955.us-central1.run.app
+— try [`/health`](https://liver-hcc-579593244955.us-central1.run.app/health),
+[`/model`](https://liver-hcc-579593244955.us-central1.run.app/model), or the
+interactive API docs at [`/docs`](https://liver-hcc-579593244955.us-central1.run.app/docs).
+(Scales to zero, so the first request may cold-start for a few seconds.)
+
 ---
 
 ## Highlights
@@ -183,8 +189,9 @@ docker run -p 8000:8000 liver-hcc
 ```
 
 **Deploy to the cloud:** the image is self-contained, so it runs on any container
-platform. A step-by-step Fly.io walkthrough (with `fly.toml`, health checks, and
-scale-to-zero) is in [`docs/deploy.md`](docs/deploy.md).
+platform. This project is deployed on **Google Cloud Run** (source deploy via
+Cloud Build — no local Docker needed); a step-by-step walkthrough is in
+[`docs/deploy.md`](docs/deploy.md). A `fly.toml` is also included for Fly.io.
 
 Example request (gene ids come from `GET /model`):
 
