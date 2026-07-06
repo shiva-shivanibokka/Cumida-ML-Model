@@ -109,12 +109,29 @@ def main() -> None:
     best_genes = gb_genes if winner == "Gradient Boosting" else lr_genes
 
     # --- Real test samples for the demo UI (baked into the serving image) -----
-    demo = {"genes": list(best_genes), "samples": []}
+    best_metrics = gb_metrics if winner == "Gradient Boosting" else lr_metrics
+    demo = {
+        "genes": list(best_genes),
+        "model_type": winner,
+        "meta": {
+            "roc_auc": round(best_metrics["roc_auc"], 4),
+            "f1": round(best_metrics["f1"], 4),
+            "n_train": int(X_train.shape[0]),
+            "n_test": int(X_test.shape[0]),
+            "n_probes": 22277,
+        },
+        # per-gene mean/std from TRAINING data, so the UI can z-score each cell
+        # and colour it on the expression heatmap scale.
+        "stats": {
+            g: {"mean": round(float(X_train[g].mean()), 4),
+                "std": round(float(X_train[g].std()) or 1.0, 4)}
+            for g in best_genes
+        },
+        "samples": [],
+    }
+    y_test_pos = y_test.reset_index(drop=True)
     for want in (config.CLASS_POS, config.CLASS_NEG):
-        picks = y_test.reset_index(drop=True).index[
-            y_test.reset_index(drop=True) == want
-        ][:2]
-        for i in picks:
+        for i in y_test_pos.index[y_test_pos == want][:2]:
             demo["samples"].append({
                 "label": want,
                 "features": {g: round(float(X_test.iloc[i][g]), 4) for g in best_genes},
