@@ -64,7 +64,7 @@ def load_bundle() -> dict:
 
 
 def load_examples() -> dict:
-    """Real held-out test samples + per-gene stats baked into the image."""
+    """Real held-out test samples + stats baked into the image for the demo UI."""
     if config.EXAMPLES_PATH.exists():
         return json.loads(config.EXAMPLES_PATH.read_text())
     return {"samples": [], "genes": [], "stats": {}, "meta": {}, "model_type": ""}
@@ -160,7 +160,8 @@ def predict(req: PredictRequest) -> PredictResponse:
 
 # --- Landing page ------------------------------------------------------------
 # A single self-contained page. `__DATA__` is replaced at request time with the
-# demo JSON (genes, per-gene stats, real samples, headline metrics).
+# demo JSON (genes, per-gene stats, all held-out samples, top gene weights,
+# headline + confusion metrics).
 _LANDING_PAGE = """<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -190,19 +191,27 @@ _LANDING_PAGE = """<!doctype html>
     letter-spacing:-.025em;margin:0 0 .9rem;}
   h1 .em{color:var(--hcc);}
   .lede{color:var(--muted);font-size:1.06rem;max-width:56ch;margin:0 0 1.9rem;}
+  .head{display:flex;align-items:center;gap:.5rem;margin:0 0 .55rem;}
+  .k{font-family:var(--mono);font-size:.72rem;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--muted);margin:0;}
+  .q{width:18px;height:18px;border-radius:50%;border:1px solid var(--line);
+    background:transparent;color:var(--muted);font-family:var(--mono);font-size:.72rem;
+    line-height:16px;text-align:center;cursor:pointer;padding:0;flex:0 0 auto;}
+  .q:hover{color:var(--ink);border-color:var(--faint);}
+  .explain{display:none;margin:0 0 1rem;color:var(--muted);font-size:.86rem;
+    border-left:2px solid var(--line);padding-left:.75rem;line-height:1.5;}
+  .explain.open{display:block;}
   .stats{display:flex;flex-wrap:wrap;border:1px solid var(--line);
     border-radius:12px;overflow:hidden;margin-bottom:2.4rem;}
-  .stat{flex:1 1 33%;min-width:120px;padding:.85rem 1.1rem;
-    border-right:1px solid var(--line);}
+  .stat{flex:1 1 30%;min-width:130px;padding:.85rem 1.1rem;border-right:1px solid var(--line);}
   .stat:last-child{border-right:0;}
   .stat b{font-family:var(--mono);font-size:1.35rem;font-weight:500;display:block;
     letter-spacing:-.02em;}
-  .stat span{font-size:.72rem;color:var(--muted);text-transform:uppercase;
-    letter-spacing:.1em;}
+  .stat .head{margin:.15rem 0 0;}
+  .stat .k{letter-spacing:.1em;font-size:.66rem;}
+  .stat .explain{margin:.5rem 0 0;font-size:.78rem;}
   .panel{background:linear-gradient(180deg,var(--panel),var(--panel2));
-    border:1px solid var(--line);border-radius:16px;padding:1.5rem;margin-bottom:1.6rem;}
-  .k{font-family:var(--mono);font-size:.72rem;letter-spacing:.18em;
-    text-transform:uppercase;color:var(--muted);margin:0 0 1rem;}
+    border:1px solid var(--line);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;}
   .chips{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
   .chip{cursor:pointer;text-align:left;padding:.8rem .95rem;border-radius:10px;
     border:1px solid var(--line);background:#0e1620;color:var(--ink);
@@ -216,10 +225,15 @@ _LANDING_PAGE = """<!doctype html>
   .chip .lab{font-family:var(--mono);font-size:.72rem;color:var(--muted);
     display:block;margin-top:.15rem;letter-spacing:.03em;}
   .chip.hccc{color:var(--hcc);} .chip.normc{color:var(--normal);}
-  .readout{margin-top:1.4rem;opacity:0;max-height:0;overflow:hidden;
-    transition:opacity .45s ease;}
+  .rand{margin-top:.6rem;width:100%;cursor:pointer;padding:.72rem;border-radius:10px;
+    border:1px dashed var(--line);background:transparent;color:var(--muted);
+    font-family:var(--mono);font-size:.82rem;letter-spacing:.03em;transition:.15s;}
+  .rand:hover{color:var(--ink);border-color:var(--faint);background:#0e1620;}
+  .readout{margin-top:1.4rem;opacity:0;max-height:0;overflow:hidden;transition:opacity .45s ease;}
   .readout.show{opacity:1;max-height:none;}
-  .heatwrap{margin:.2rem 0 1.4rem;}
+  .rhead{font-family:var(--mono);font-size:.68rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);display:flex;align-items:center;
+    gap:.5rem;margin:.2rem 0 .6rem;}
   .heat{display:flex;gap:3px;}
   .cell{flex:1 1 0;height:38px;border-radius:3px;background:#16202c;
     opacity:0;transform:translateY(6px);
@@ -229,7 +243,7 @@ _LANDING_PAGE = """<!doctype html>
     font-size:.66rem;color:var(--muted);margin-top:.5rem;letter-spacing:.04em;}
   .swatch{display:inline-block;width:9px;height:9px;border-radius:2px;
     vertical-align:middle;margin:0 .25rem;}
-  .verdict{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin:.2rem 0 .1rem;}
+  .verdict{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin:1.3rem 0 .1rem;}
   .verdict .big{font-size:1.55rem;font-weight:600;letter-spacing:-.02em;}
   .verdict.hccv .big{color:var(--hcc);} .verdict.normv .big{color:var(--normal);}
   .verdict .sci{font-family:var(--mono);font-size:.8rem;color:var(--muted);}
@@ -246,7 +260,28 @@ _LANDING_PAGE = """<!doctype html>
     font-size:.68rem;color:var(--muted);margin-top:.45rem;letter-spacing:.08em;}
   .meter .pval{font-family:var(--mono);font-size:.82rem;color:var(--ink);
     text-align:center;margin-top:.5rem;}
-  .steps{display:grid;margin:0 0 1.6rem;}
+  .cmatrix{display:grid;grid-template-columns:5.5rem 1fr 1fr;gap:.4rem;align-items:stretch;}
+  .cmatrix .corner{}
+  .cmatrix .colh,.cmatrix .rowh{font-family:var(--mono);font-size:.64rem;color:var(--muted);
+    display:flex;align-items:center;letter-spacing:.04em;}
+  .cmatrix .colh{justify-content:center;text-align:center;}
+  .cmatrix .rowh{justify-content:flex-end;text-align:right;padding-right:.4rem;}
+  .cmcell{border-radius:8px;padding:.55rem;text-align:center;border:1px solid var(--line);}
+  .cmcell b{font-family:var(--mono);font-size:1.3rem;display:block;line-height:1.1;}
+  .cmcell span{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  .cmcell.good{background:rgba(56,198,232,.09);border-color:rgba(56,198,232,.35);}
+  .cmcell.bad{background:rgba(255,93,115,.09);border-color:rgba(255,93,115,.35);}
+  .cmcell.zero{opacity:.55;}
+  .perf{font-family:var(--mono);font-size:.86rem;margin-top:1rem;color:var(--muted);}
+  .perf b{color:var(--normal);}
+  .bars{display:grid;gap:.5rem;}
+  .brow{display:grid;grid-template-columns:5.7rem 1fr;gap:.7rem;align-items:center;
+    font-family:var(--mono);font-size:.72rem;}
+  .brow .gid{color:var(--muted);text-align:right;overflow:hidden;text-overflow:ellipsis;}
+  .btrack{position:relative;height:16px;background:#0e1620;border-radius:4px;border:1px solid var(--line);}
+  .bmid{position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--faint);}
+  .bfill{position:absolute;top:0;height:100%;border-radius:3px;}
+  .steps{display:grid;margin:.4rem 0 0;}
   .step{display:flex;gap:.9rem;padding:.78rem 0;border-top:1px solid var(--line);}
   .step .n{font-family:var(--mono);font-size:.75rem;color:var(--normal);
     min-width:2rem;padding-top:.15rem;letter-spacing:.05em;}
@@ -257,7 +292,7 @@ _LANDING_PAGE = """<!doctype html>
     display:flex;flex-wrap:wrap;gap:.4rem 1.1rem;align-items:center;}
   footer a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--line);}
   footer a:hover{color:var(--ink);}
-  .hint{font-size:.8rem;color:var(--faint);margin:.9rem 0 0;font-family:var(--mono);}
+  .hint{font-size:.8rem;color:var(--faint);margin:1rem 0 0;font-family:var(--mono);}
   @media(max-width:520px){.chips{grid-template-columns:1fr}.cell{height:30px}}
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head>
@@ -270,34 +305,69 @@ _LANDING_PAGE = """<!doctype html>
      gene probes. Pick a real biopsy it never saw and watch it read the expression.</p>
 
   <div class="stats">
-    <div class="stat"><b id="s-auc">&mdash;</b><span>Test ROC-AUC</span></div>
-    <div class="stat"><b id="s-genes">&mdash;</b><span>Genes used</span></div>
-    <div class="stat"><b id="s-probes">&mdash;</b><span>Probes screened</span></div>
+    <div class="stat"><b id="s-auc">&mdash;</b>
+      <div class="head"><span class="k">Test ROC-AUC</span><button class="q">?</button></div>
+      <p class="explain">How well the model separates cancer from healthy across every
+         decision threshold. 1.0 is flawless; 0.5 is a coin flip.</p></div>
+    <div class="stat"><b id="s-genes">&mdash;</b>
+      <div class="head"><span class="k">Genes used</span><button class="q">?</button></div>
+      <p class="explain">The final model reads only this many gene probes &mdash; picked
+         from 22,277 &mdash; so each prediction is compact and interpretable.</p></div>
+    <div class="stat"><b id="s-probes">&mdash;</b>
+      <div class="head"><span class="k">Probes screened</span><button class="q">?</button></div>
+      <p class="explain">Every biopsy is measured at 22,277 gene probes; feature
+         selection narrows these down to the informative few.</p></div>
   </div>
 
   <div class="panel">
-    <p class="k">Pick a biopsy sample</p>
+    <div class="head"><p class="k">Pick a biopsy sample</p><button class="q">?</button></div>
+    <p class="explain">Real held-out biopsies the model never trained on. Click a labelled
+       one, or draw a random biopsy from all 72 &mdash; the model reads its genes live.</p>
     <div class="chips" id="chips"></div>
+    <button class="rand" id="rand">&#127922; Draw a random held-out biopsy</button>
 
     <div class="readout" id="readout">
-      <div class="heatwrap">
-        <div class="heat" id="heat"></div>
-        <div class="heatlabels">
-          <span><span class="swatch" style="background:var(--normal)"></span>under-expressed</span>
-          <span>expression readout &middot; 20 genes</span>
-          <span>over-expressed<span class="swatch" style="background:var(--hcc)"></span></span>
-        </div>
+      <div class="rhead"><span>Expression readout</span><button class="q">?</button></div>
+      <p class="explain">Each cell is one gene's expression in this biopsy, standardised
+         against the training average. Cyan = under-expressed, red = over-expressed.
+         Hover a cell for the gene id and value.</p>
+      <div class="heat" id="heat"></div>
+      <div class="heatlabels">
+        <span><span class="swatch" style="background:var(--normal)"></span>under-expressed</span>
+        <span>expression readout &middot; 20 genes</span>
+        <span>over-expressed<span class="swatch" style="background:var(--hcc)"></span></span>
       </div>
       <div class="verdict" id="verdict"></div>
+      <div class="rhead" style="margin-top:1rem"><span>Model confidence</span><button class="q">?</button></div>
+      <p class="explain">The probability the model assigns to HCC. Above 50% it calls
+         cancer; the needle shows exactly how sure it is.</p>
       <div class="meter">
         <div class="track"><div class="needle" id="needle"></div></div>
         <div class="ends"><span>Normal</span><span>HCC</span></div>
         <div class="pval" id="pval"></div>
       </div>
+      <p class="hint" id="hint"></p>
     </div>
-    <p class="hint" id="hint">4 held-out samples &middot; the model never trained on these</p>
   </div>
 
+  <div class="panel">
+    <div class="head"><p class="k">Held-out performance</p><button class="q">?</button></div>
+    <p class="explain">How the model does across all 72 biopsies it never saw during
+       training or tuning. Green cells are correct calls; red are mistakes.</p>
+    <div class="cmatrix" id="cmatrix"></div>
+    <p class="perf" id="perf"></p>
+  </div>
+
+  <div class="panel">
+    <div class="head"><p class="k">What the model weights</p><button class="q">?</button></div>
+    <p class="explain">The genes with the largest influence on the decision. A red bar
+       pushes a biopsy toward cancer; a cyan bar pushes it toward healthy.</p>
+    <div class="bars" id="bars"></div>
+  </div>
+
+  <div class="head" style="margin-top:2rem"><p class="k">How it works</p><button class="q">?</button></div>
+  <p class="explain">The three-stage pipeline behind every prediction, built to avoid
+     the leakage that inflates most gene-expression classifiers.</p>
   <div class="steps">
     <div class="step"><span class="n">01</span><p><b>Screen</b> 22,277 gene probes down to a
        small candidate set with label-free filters &mdash; no test data touched.</p></div>
@@ -321,39 +391,78 @@ const DATA = __DATA__;
 const HCC='HCC', NORMAL='normal';
 const C_NORMAL=[56,198,232], C_NEUT=[24,34,48], C_HCC=[255,93,115];
 function mix(a,b,t){return 'rgb('+a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')+')';}
-// Diverging colour, saturated by |z|=1.6 so real up/down-regulation is visible.
 function divColor(z){const L=1.6,c=Math.max(-L,Math.min(L,z)),t=(c+L)/(2*L);
   return t<0.5?mix(C_NORMAL,C_NEUT,t*2):mix(C_NEUT,C_HCC,(t-0.5)*2);}
 
-const meta=DATA.meta||{};
+const meta=DATA.meta||{}, samples=DATA.samples||[];
+
+// header stats
 document.getElementById('s-auc').textContent=meta.roc_auc!=null?meta.roc_auc.toFixed(3):'--';
 document.getElementById('s-genes').textContent=(DATA.genes||[]).length||'--';
 document.getElementById('s-probes').textContent=meta.n_probes?meta.n_probes.toLocaleString():'--';
 document.getElementById('f-model').textContent=(DATA.model_type||'model')+' - '+(meta.n_test||'?')+' test samples';
 
+// "?" explainers: toggle the .explain that follows each header
+document.querySelectorAll('.q').forEach(q=>q.addEventListener('click',()=>{
+  const ex=q.closest('.head,.rhead').nextElementSibling;
+  if(ex&&ex.classList.contains('explain'))ex.classList.toggle('open');
+}));
+
+// featured chips: first two of each class
+const featured=[...samples.filter(s=>s.label===HCC).slice(0,2),
+                ...samples.filter(s=>s.label===NORMAL).slice(0,2)];
 const chips=document.getElementById('chips');
-(DATA.samples||[]).forEach((s,i)=>{
+featured.forEach(s=>{
   const b=document.createElement('button');
   b.className='chip '+(s.label===HCC?'hccc':'normc');
-  const n=DATA.samples.filter((x,j)=>j<=i&&x.label===s.label).length;
-  b.innerHTML='<span class="dot" style="background:currentColor"></span>Biopsy '+
-    (s.label===HCC?'T':'N')+n+
-    '<span class="lab">confirmed: '+(s.label===HCC?'HCC tumour':'normal tissue')+'</span>';
+  b.innerHTML='<span class="dot" style="background:currentColor"></span>'+
+    (s.label===HCC?'Tumour biopsy':'Normal biopsy')+
+    '<span class="lab">confirmed: '+(s.label===HCC?'HCC':'normal tissue')+'</span>';
   b.addEventListener('click',()=>predict(s,b));
   chips.appendChild(b);
 });
-if(!(DATA.samples||[]).length){
-  chips.innerHTML='<p class="hint">No demo samples baked in. Run <code>python train.py</code>.</p>';
+document.getElementById('rand').addEventListener('click',()=>{
+  if(!samples.length)return;
+  const s=samples[Math.floor(Math.random()*samples.length)];
+  predict(s,null);
+});
+if(!samples.length){chips.innerHTML='<p class="hint">No demo samples baked in. Run <code>python train.py</code>.</p>';}
+
+// confusion matrix
+const cm=meta.confusion||{};
+function cell(v,cls,lab){return '<div class="cmcell '+cls+(v===0?' zero':'')+'"><b>'+v+'</b><span>'+lab+'</span></div>';}
+if(cm.tp!=null){
+  document.getElementById('cmatrix').innerHTML=
+    '<div class="corner"></div><div class="colh">predicted HCC</div><div class="colh">predicted normal</div>'+
+    '<div class="rowh">actual<br>HCC</div>'+cell(cm.tp,'good','caught')+cell(cm.fn,'bad','missed')+
+    '<div class="rowh">actual<br>normal</div>'+cell(cm.fp,'bad','false alarm')+cell(cm.tn,'good','cleared');
+  const total=cm.tp+cm.tn+cm.fp+cm.fn, correct=cm.tp+cm.tn;
+  document.getElementById('perf').innerHTML=
+    '<b>'+correct+' / '+total+'</b> correct &nbsp;&middot;&nbsp; '+
+    ((meta.accuracy!=null?meta.accuracy*100:correct/total*100).toFixed(1))+'% accuracy &nbsp;&middot;&nbsp; '+
+    cm.fp+' false alarms';
 }
 
+// top gene weights (diverging bars)
+const tg=DATA.top_genes||[], weighted=DATA.weighted!==false;
+const maxw=Math.max(1,...tg.map(t=>Math.abs(t.weight)));
+document.getElementById('bars').innerHTML=tg.map(t=>{
+  const pos=t.weight>=0, w=Math.abs(t.weight)/maxw*50;
+  const col=!weighted?'var(--ink)':(pos?'var(--hcc)':'var(--normal)');
+  const left=weighted?(pos?50:50-w):0, width=weighted?w:Math.abs(t.weight)/maxw*100;
+  return '<div class="brow"><span class="gid" title="'+t.gene+'">'+t.gene+'</span>'+
+    '<div class="btrack">'+(weighted?'<div class="bmid"></div>':'')+
+    '<div class="bfill" style="left:'+left+'%;width:'+width+'%;background:'+col+'"></div></div></div>';
+}).join('');
+
+// heatmap
 function buildHeat(features){
   const heat=document.getElementById('heat'); heat.innerHTML='';
   (DATA.genes||[]).forEach((g,i)=>{
     const st=(DATA.stats||{})[g]||{mean:0,std:1};
     const z=(features[g]-st.mean)/(st.std||1);
     const cell=document.createElement('div');
-    cell.className='cell';
-    cell.style.transitionDelay=(i*28)+'ms';
+    cell.className='cell'; cell.style.transitionDelay=(i*28)+'ms';
     requestAnimationFrame(()=>{cell.style.background=divColor(z);});
     cell.title=g+'  -  expr '+Number(features[g]).toFixed(2)+'  -  z '+z.toFixed(2);
     heat.appendChild(cell);
@@ -364,8 +473,8 @@ let busy=false;
 async function predict(sample,btn){
   if(busy)return; busy=true;
   document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
-  btn.classList.add('on');
-  document.getElementById('readout').classList.add('show');
+  if(btn)btn.classList.add('on');
+  const ro=document.getElementById('readout'); ro.classList.add('show');
   document.getElementById('hint').textContent='reading expression...';
   buildHeat(sample.features);
   try{
@@ -381,7 +490,8 @@ async function predict(sample,btn){
       '<span class="match '+(ok?'ok':'no')+'">'+(ok?'matches diagnosis':'vs confirmed '+sample.label)+'</span>';
     document.getElementById('needle').style.left=pct.toFixed(1)+'%';
     document.getElementById('pval').textContent='P(HCC) = '+pct.toFixed(1)+'%';
-    document.getElementById('hint').textContent='20 gene values -> live model -> prediction';
+    document.getElementById('hint').textContent='20 gene values -> live model -> prediction ('+
+      (btn?'labelled sample':'random held-out biopsy')+')';
   }catch(e){
     document.getElementById('hint').textContent='Error: '+e;
   }

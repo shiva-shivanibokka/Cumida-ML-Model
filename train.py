@@ -108,14 +108,30 @@ def main() -> None:
     best_model = gb_model if winner == "Gradient Boosting" else lr_model
     best_genes = gb_genes if winner == "Gradient Boosting" else lr_genes
 
-    # --- Real test samples for the demo UI (baked into the serving image) -----
+    # --- Demo data for the UI (baked into the serving image) -----------------
     best_metrics = gb_metrics if winner == "Gradient Boosting" else lr_metrics
+    cm = best_metrics["confusion"]
+    # Top genes the model weights. LR gives signed coefficients (HCC=1, so a
+    # positive weight pushes toward cancer); GB gives unsigned importances.
+    clf = best_model.named_steps["clf"]
+    if hasattr(clf, "coef_"):
+        weights = [(g, round(float(w), 3)) for g, w in zip(best_genes, clf.coef_[0])]
+    else:
+        weights = [(g, round(float(w), 3)) for g, w in zip(best_genes, clf.feature_importances_)]
+    top_genes = sorted(weights, key=lambda t: abs(t[1]), reverse=True)[:8]
+
     demo = {
         "genes": list(best_genes),
         "model_type": winner,
+        "weighted": hasattr(clf, "coef_"),  # True = signed coefficients
+        "top_genes": [{"gene": g, "weight": w} for g, w in top_genes],
         "meta": {
             "roc_auc": round(best_metrics["roc_auc"], 4),
             "f1": round(best_metrics["f1"], 4),
+            "precision": round(best_metrics["precision"], 4),
+            "recall": round(best_metrics["recall"], 4),
+            "accuracy": round((cm["tp"] + cm["tn"]) / (cm["tp"] + cm["tn"] + cm["fp"] + cm["fn"]), 4),
+            "confusion": cm,
             "n_train": int(X_train.shape[0]),
             "n_test": int(X_test.shape[0]),
             "n_probes": 22277,
@@ -127,16 +143,13 @@ def main() -> None:
                 "std": round(float(X_train[g].std()) or 1.0, 4)}
             for g in best_genes
         },
-        "samples": [],
+        # every held-out test sample, so the UI can pick a random real biopsy.
+        "samples": [
+            {"label": lab, "features": {g: round(float(X_test.iloc[i][g]), 4) for g in best_genes}}
+            for i, lab in enumerate(y_test.reset_index(drop=True))
+        ],
     }
-    y_test_pos = y_test.reset_index(drop=True)
-    for want in (config.CLASS_POS, config.CLASS_NEG):
-        for i in y_test_pos.index[y_test_pos == want][:2]:
-            demo["samples"].append({
-                "label": want,
-                "features": {g: round(float(X_test.iloc[i][g]), 4) for g in best_genes},
-            })
-    config.EXAMPLES_PATH.write_text(json.dumps(demo, indent=1))
+    config.EXAMPLES_PATH.write_text(json.dumps(demo))
 
     # --- Persist artifacts ---------------------------------------------------
     joblib.dump(
