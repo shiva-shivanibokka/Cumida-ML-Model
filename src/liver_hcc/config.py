@@ -90,6 +90,7 @@ Y_TEST_CSV: Path = ARTIFACTS_DIR / "y_test.csv"
 
 MODEL_PATH: Path = ARTIFACTS_DIR / "model.joblib"
 METRICS_PATH: Path = ARTIFACTS_DIR / "metrics.json"
+EXAMPLES_PATH: Path = ARTIFACTS_DIR / "examples.json"  # real samples for the demo UI
 
 
 def ensure_artifacts_dir() -> Path:

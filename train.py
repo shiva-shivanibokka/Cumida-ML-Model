@@ -108,6 +108,19 @@ def main() -> None:
     best_model = gb_model if winner == "Gradient Boosting" else lr_model
     best_genes = gb_genes if winner == "Gradient Boosting" else lr_genes
 
+    # --- Real test samples for the demo UI (baked into the serving image) -----
+    demo = {"genes": list(best_genes), "samples": []}
+    for want in (config.CLASS_POS, config.CLASS_NEG):
+        picks = y_test.reset_index(drop=True).index[
+            y_test.reset_index(drop=True) == want
+        ][:2]
+        for i in picks:
+            demo["samples"].append({
+                "label": want,
+                "features": {g: round(float(X_test.iloc[i][g]), 4) for g in best_genes},
+            })
+    config.EXAMPLES_PATH.write_text(json.dumps(demo, indent=1))
+
     # --- Persist artifacts ---------------------------------------------------
     joblib.dump(
         {

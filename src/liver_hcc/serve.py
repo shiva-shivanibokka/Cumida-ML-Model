@@ -88,9 +88,16 @@ app = FastAPI(
 )
 
 
+def load_examples() -> dict:
+    """Real held-out test samples baked into the image, for the demo UI."""
+    if config.EXAMPLES_PATH.exists():
+        return json.loads(config.EXAMPLES_PATH.read_text())
+    return {"samples": [], "genes": []}
+
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
-    """Human-friendly landing page so the root URL isn't a bare 404."""
+    """Interactive demo landing page — real samples, live predictions."""
     try:
         bundle = load_bundle()
         model_line = (
@@ -98,38 +105,92 @@ def index() -> str:
         )
     except Exception:
         model_line = "model not loaded — run `python train.py`"
+
+    samples = load_examples().get("samples", [])
+    # Buttons carry each real sample's features + true label as JSON.
+    buttons = "\n".join(
+        f"""<button class="sample" data-label="{s['label']}"
+             data-features='{json.dumps(s['features'])}'>
+             Patient sample {i + 1} <span class="truth">(actual: {s['label']})</span>
+        </button>"""
+        for i, s in enumerate(samples)
+    )
+
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Liver HCC Classifier API</title>
+<title>Liver HCC Classifier</title>
 <style>
   :root {{ color-scheme: light dark; }}
   body {{ font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    max-width: 640px; margin: 6vh auto; padding: 0 1.2rem; line-height: 1.6; }}
+    max-width: 680px; margin: 5vh auto; padding: 0 1.2rem; line-height: 1.6; }}
   h1 {{ margin-bottom: .2rem; }}
   .sub {{ opacity: .75; margin-top: 0; }}
   code {{ background: rgba(128,128,128,.18); padding: .1rem .35rem; border-radius: 4px; }}
   a {{ color: #2f81f7; }}
   .card {{ border: 1px solid rgba(128,128,128,.3); border-radius: 10px;
     padding: 1rem 1.2rem; margin: 1rem 0; }}
+  button.sample {{ display: block; width: 100%; text-align: left; cursor: pointer;
+    margin: .5rem 0; padding: .7rem 1rem; border-radius: 8px; font-size: 1rem;
+    border: 1px solid rgba(128,128,128,.4); background: rgba(128,128,128,.08); }}
+  button.sample:hover {{ background: rgba(47,129,247,.15); }}
+  .truth {{ opacity: .6; font-size: .85em; }}
+  #result {{ margin-top: 1rem; padding: 1.1rem 1.2rem; border-radius: 10px;
+    font-size: 1.05rem; display: none; }}
+  #result.hcc {{ background: rgba(232,92,92,.16); border: 1px solid #e85c5c; }}
+  #result.normal {{ background: rgba(76,155,232,.16); border: 1px solid #4c9be8; }}
+  .bar {{ height: 10px; border-radius: 5px; background: rgba(128,128,128,.25);
+    margin-top: .5rem; overflow: hidden; }}
+  .bar > div {{ height: 100%; background: #e85c5c; }}
   ul {{ padding-left: 1.1rem; }}
 </style></head><body>
   <h1>🧬 Liver HCC Classifier</h1>
   <p class="sub">Classifies liver tissue as <b>HCC</b> (hepatocellular carcinoma)
-     or <b>normal</b> from microarray gene expression.</p>
-  <div class="card">
-    <b>Model:</b> {model_line}<br>
-    <b>Status:</b> healthy
-  </div>
-  <h3>Endpoints</h3>
+     or <b>normal</b> from microarray gene-expression values.</p>
+  <div class="card"><b>Model:</b> {model_line} &nbsp;·&nbsp; <b>Status:</b> healthy</div>
+
+  <h3>▶ Try it — predict a real patient sample</h3>
+  <p class="sub">These are actual held-out test samples the model never trained on.
+     Click one to send its 20 gene-expression values to the live model.</p>
+  {buttons or '<p><i>No demo samples baked in. Run <code>python train.py</code>.</i></p>'}
+  <div id="result"></div>
+
+  <h3>API endpoints</h3>
   <ul>
-    <li><a href="/docs">/docs</a> — interactive API documentation (try it here)</li>
-    <li><a href="/health">/health</a> — liveness probe</li>
-    <li><a href="/model">/model</a> — the exact gene probes the model expects</li>
-    <li><code>POST /predict</code> — send gene values, get a prediction</li>
+    <li><a href="/docs">/docs</a> — interactive API documentation</li>
+    <li><a href="/health">/health</a> · <a href="/model">/model</a> ·
+        <code>POST /predict</code></li>
   </ul>
   <p class="sub">Source &amp; write-up:
     <a href="https://github.com/shiva-shivanibokka/Cumida-ML-Model">github.com/shiva-shivanibokka/Cumida-ML-Model</a></p>
+
+<script>
+document.querySelectorAll('button.sample').forEach(function (btn) {{
+  btn.addEventListener('click', async function () {{
+    const box = document.getElementById('result');
+    box.style.display = 'block'; box.className = ''; box.textContent = 'Predicting…';
+    try {{
+      const features = JSON.parse(btn.getAttribute('data-features'));
+      const truth = btn.getAttribute('data-label');
+      const resp = await fetch('/predict', {{
+        method: 'POST', headers: {{ 'Content-Type': 'application/json' }},
+        body: JSON.stringify({{ features: features }})
+      }});
+      const data = await resp.json();
+      const pct = (data.probability_hcc * 100).toFixed(1);
+      const correct = data.prediction === truth;
+      box.className = data.prediction === 'HCC' ? 'hcc' : 'normal';
+      box.innerHTML =
+        '<b>Prediction: ' + data.prediction + '</b> &nbsp; ' +
+        (correct ? '✅ matches actual' : '❌ differs from actual (' + truth + ')') +
+        '<br>P(HCC) = ' + pct + '%  ·  model: ' + data.model_type +
+        '<div class="bar"><div style="width:' + pct + '%"></div></div>';
+    }} catch (e) {{
+      box.className = ''; box.textContent = 'Error: ' + e;
+    }}
+  }});
+}});
+</script>
 </body></html>"""
 
 

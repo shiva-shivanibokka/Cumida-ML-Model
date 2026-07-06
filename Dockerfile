@@ -20,9 +20,10 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install --no-cache-dir --no-deps -e .
 
-# Bake in the trained model (tiny — a few KB). Build fails here if you haven't
-# run `python train.py` yet, which is the desired safety check.
+# Bake in the trained model + demo samples (tiny — a few KB each). Build fails
+# here if you haven't run `python train.py` yet, which is the desired safety check.
 COPY artifacts/model.joblib ./artifacts/model.joblib
+COPY artifacts/examples.json ./artifacts/examples.json
 
 EXPOSE 8000
 
