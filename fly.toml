@@ -2,8 +2,8 @@
 # Deploy with:  fly launch --no-deploy   (first time, to create the app)
 #               fly deploy
 # See docs/deploy.md for the full walkthrough.
-app = "liver-hcc"          # change to a unique name if this is taken
-primary_region = "iad"      # pick one near you: fly platform regions
+app = "liver-hcc-sbokka"    # globally-unique Fly app name
+primary_region = "iad"      # US-East; change via `fly platform regions`
 
 [build]
   dockerfile = "Dockerfile"

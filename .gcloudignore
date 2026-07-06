@@ -1,0 +1,24 @@
+# What NOT to upload to Cloud Build when running `gcloud run deploy --source .`
+# The image only needs: requirements.txt, pyproject.toml, README.md, src/,
+# and artifacts/model.joblib (all COPYed by the Dockerfile).
+
+# Big raw dataset and regenerable intermediate splits (keep model.joblib!)
+Liver_GSE14520_U133A.csv
+artifacts/*.csv
+
+# Notebooks, docs, tests — not needed in the serving image
+*.ipynb
+docs/
+tests/
+
+# Local cruft
+.git/
+.github/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+.DS_Store

@@ -26,8 +26,12 @@ COPY artifacts/model.joblib ./artifacts/model.joblib
 
 EXPOSE 8000
 
+# Listen on $PORT when the platform provides one (Google Cloud Run injects
+# PORT=8080), else default to 8000 for local runs and Fly.
+ENV PORT=8000
+
 # Simple container healthcheck hitting the app's own /health endpoint.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"
+    CMD python -c "import os,urllib.request,sys; sys.exit(0 if urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\",\"8000\")}/health').status==200 else 1)"
 
-CMD ["uvicorn", "liver_hcc.serve:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn liver_hcc.serve:app --host 0.0.0.0 --port ${PORT:-8000}"]
