@@ -1,0 +1,18 @@
+# Core ML + data stack. Pinned loosely so Colab's preinstalled versions satisfy them.
+# For a fully reproducible local run:  pip install -r requirements.txt
+pandas>=1.5
+numpy>=1.23
+scikit-learn>=1.1
+scikit-optimize>=0.9
+matplotlib>=3.5
+seaborn>=0.12
+joblib>=1.2
+
+# Serving layer (optional — only needed to run the FastAPI app / Docker image)
+fastapi>=0.100
+uvicorn[standard]>=0.23
+pydantic>=2.0
+
+# Tests (optional)
+pytest>=7.0
+httpx>=0.24

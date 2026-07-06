@@ -1,0 +1,27 @@
+# Fly.io deployment config for the liver HCC classifier API.
+# Deploy with:  fly launch --no-deploy   (first time, to create the app)
+#               fly deploy
+# See docs/deploy.md for the full walkthrough.
+app = "liver-hcc"          # change to a unique name if this is taken
+primary_region = "iad"      # pick one near you: fly platform regions
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"     # scale to zero when idle (free-tier friendly)
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"          # the model is tiny; 256MB is plenty

@@ -1,0 +1,9 @@
+Liver_GSE14520_U133A.csv
+*.ipynb
+.git
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+artifacts/*.csv
+docs

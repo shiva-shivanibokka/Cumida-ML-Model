@@ -1,2 +1,28 @@
-# Dataset — too large for GitHub (128 MB)
+# Dataset — too large for GitHub (128 MB). See README "How to get the data".
 Liver_GSE14520_U133A.csv
+
+# Generated intermediate splits (large, regenerable by train.py / Notebook 02)
+artifacts/*.csv
+
+# Keep the small, useful artifacts committed so the repo is demo-able without
+# a full retrain:  !artifacts/model.joblib  !artifacts/metrics.json
+# (negations below re-include them despite broader ignores)
+!artifacts/model.joblib
+!artifacts/metrics.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
