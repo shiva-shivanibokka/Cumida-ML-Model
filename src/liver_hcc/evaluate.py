@@ -17,8 +17,6 @@ from sklearn.metrics import (
     roc_curve,
 )
 
-from . import config
-
 
 def evaluate_binary(y_true_binary, y_pred_binary, y_prob_pos) -> dict:
     """Compute the standard metric bundle for the positive (HCC) class.

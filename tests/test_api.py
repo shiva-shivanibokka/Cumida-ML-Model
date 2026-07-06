@@ -2,7 +2,11 @@
 so these run in milliseconds without needing the real dataset or a trained model.
 """
 
+import json
+import warnings
+
 import numpy as np
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 from sklearn.linear_model import LogisticRegression
@@ -17,9 +21,15 @@ GENES = ["gene_a", "gene_b", "gene_c"]
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     # Train a trivial but real sklearn pipeline on separable synthetic data.
+    # Fit on a *named* DataFrame so the pipeline stores feature_names_in_, exactly
+    # like the production model — this is what makes the feature-name warning test
+    # meaningful (a bare-array fit would never trigger it).
     rng = np.random.default_rng(0)
     n = 60
-    X = np.vstack([rng.normal(0, 1, (n, 3)), rng.normal(4, 1, (n, 3))])
+    X = pd.DataFrame(
+        np.vstack([rng.normal(0, 1, (n, 3)), rng.normal(4, 1, (n, 3))]),
+        columns=GENES,
+    )
     y = np.array([0] * n + [1] * n)
     model = Pipeline([("scaler", StandardScaler()), ("clf", LogisticRegression())])
     model.fit(X, y)
@@ -38,8 +48,23 @@ def client(tmp_path, monkeypatch):
         bundle_path,
     )
 
-    # Point the service at the temp model and clear any cached bundle.
+    # Isolate BOTH artifact paths so tests never read the repo's real
+    # artifacts/ (keeps the suite hermetic and order-independent).
+    examples_path = tmp_path / "examples.json"
+    examples_path.write_text(
+        json.dumps(
+            {
+                "samples": [],
+                "genes": GENES,
+                "stats": {},
+                "meta": {},
+                "model_type": "Logistic Regression",
+            }
+        )
+    )
+
     monkeypatch.setattr(config, "MODEL_PATH", bundle_path)
+    monkeypatch.setattr(config, "EXAMPLES_PATH", examples_path)
     monkeypatch.setattr(serve, "_BUNDLE", None)
     return TestClient(serve.app)
 
@@ -76,3 +101,27 @@ def test_predict_rejects_missing_genes(client):
     r = client.post("/predict", json={"features": {"gene_a": 1.0}})
     assert r.status_code == 422
     assert "Missing" in r.json()["detail"]
+
+
+def test_predict_emits_no_feature_name_warning(client):
+    """Regression: /predict must not emit sklearn's 'X does not have valid
+    feature names' UserWarning, which would pollute the structured JSON logs.
+    The fixture's model is fitted on named columns, so a bare-list input would
+    trigger it — this passes only because serve.py builds a named DataFrame."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        r = client.post("/predict", json={"features": {g: 5.0 for g in GENES}})
+    assert r.status_code == 200
+    offending = [str(w.message) for w in caught if "feature names" in str(w.message)]
+    assert not offending, offending
+
+
+def test_index_handles_missing_examples(tmp_path, monkeypatch):
+    """The landing page must still render (200) when no demo artifacts exist,
+    exercising the fallback branch in serve.load_examples / index()."""
+    monkeypatch.setattr(config, "EXAMPLES_PATH", tmp_path / "absent.json")
+    monkeypatch.setattr(config, "MODEL_PATH", tmp_path / "absent.joblib")
+    monkeypatch.setattr(serve, "_BUNDLE", None)
+    r = TestClient(serve.app).get("/")
+    assert r.status_code == 200
+    assert "Liver HCC Classifier" in r.text

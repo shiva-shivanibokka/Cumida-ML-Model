@@ -11,14 +11,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies first so Docker layer-caching skips this on code-only changes.
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Package source + metadata, then install the package itself.
-COPY pyproject.toml README.md ./
+# Package source + metadata, then install the package with ONLY its serving deps.
+# `.[serve]` pulls the lean core (pandas/numpy/scikit-learn/joblib) plus
+# fastapi/uvicorn/pydantic — and deliberately NOT the training/notebook libs
+# (matplotlib, seaborn, scikit-optimize), which the runtime never imports. That
+# keeps the image small and Cloud Run cold starts fast.
+COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
-RUN pip install --no-cache-dir --no-deps -e .
+RUN pip install --no-cache-dir ".[serve]"
 
 # Bake in the trained model + demo samples (tiny — a few KB each). Build fails
 # here if you haven't run `python train.py` yet, which is the desired safety check.

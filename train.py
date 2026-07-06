@@ -31,8 +31,10 @@ from liver_hcc import config, data, evaluate, features, models
 
 # sklearn 1.8 deprecated LogisticRegression's `penalty=` in favour of `l1_ratio`;
 # we keep `penalty` for compatibility with the older sklearn on Colab. Silence
-# the (harmless) deprecation noise so the training log stays readable.
-warnings.filterwarnings("ignore")
+# only that (harmless) deprecation noise — NOT everything — so genuine signals
+# like ConvergenceWarning (model hit max_iter) still surface in the training log.
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning, module="sklearn")
 
 
 def _log(msg: str) -> None:

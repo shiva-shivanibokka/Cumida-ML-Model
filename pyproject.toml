@@ -9,18 +9,21 @@ description = "Liver HCC classification from GSE14520 microarray gene expression
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.9"
+# Core runtime: everything needed to train the model AND serve a prediction.
+# Kept deliberately lean so the serving image (`.[serve]`) stays small.
 dependencies = [
     "pandas>=1.5",
     "numpy>=1.23",
     "scikit-learn>=1.1",
-    "scikit-optimize>=0.9",
-    "matplotlib>=3.5",
-    "seaborn>=0.12",
     "joblib>=1.2",
 ]
 
 [project.optional-dependencies]
 serve = ["fastapi>=0.100", "uvicorn[standard]>=0.23", "pydantic>=2.0"]
+# Training/notebook-only libs: plotting + the optional Bayesian search
+# (models.py falls back to RandomizedSearchCV when scikit-optimize is absent).
+# Not installed into the serving image.
+train = ["scikit-optimize>=0.9", "matplotlib>=3.5", "seaborn>=0.12"]
 dev = ["pytest>=7.0", "httpx>=0.24"]
 
 [project.scripts]

@@ -24,4 +24,5 @@ primary_region = "iad"      # US-East; change via `fly platform regions`
 
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "256mb"          # the model is tiny; 256MB is plenty
+  memory = "512mb"          # matches Cloud Run; headroom for the pandas+sklearn
+                            # import and model load (256MB risks OOM on cold start)

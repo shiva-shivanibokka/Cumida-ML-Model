@@ -23,6 +23,7 @@ import time
 from typing import Any
 
 import joblib
+import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
@@ -139,8 +140,12 @@ def predict(req: PredictRequest) -> PredictResponse:
             detail=f"Missing {len(missing)} required gene(s), e.g. {missing[:5]}",
         )
 
-    # Order features exactly as the model expects.
-    row = [[float(req.features[g]) for g in genes]]
+    # Order features exactly as the model expects. Build a named 1-row frame:
+    # the deployed pipeline was fitted on a DataFrame, so passing column names
+    # keeps predictions warning-free (a bare list triggers sklearn's
+    # "X does not have valid feature names" UserWarning on every request,
+    # polluting the structured JSON logs).
+    row = pd.DataFrame([[float(req.features[g]) for g in genes]], columns=genes)
 
     t0 = time.time()
     model = bundle["model"]

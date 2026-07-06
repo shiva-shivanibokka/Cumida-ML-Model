@@ -114,10 +114,13 @@ The service is stateless — the model is loaded once and cached in-process, and
 prediction is a single scaled dot-product (LR) or a few hundred shallow-tree
 evaluations (GB), i.e. sub-millisecond. Scaling out is therefore horizontal:
 run N replicas of the container behind a load balancer; `/health` gives the
-orchestrator its readiness signal. The model artifact is mounted as a volume, so
-a retrain is a file swap + rolling restart, not an image rebuild. The realistic
-bottleneck at high load is per-request JSON (de)serialization, not inference —
-batching the `/predict` endpoint would be the first optimization if needed.
+orchestrator its readiness signal. The model artifact is baked into the image at
+build time, so a retrain is `python train.py` + a source redeploy (Cloud Build
+rebuilds and rolls out the image); for fast *local* iteration you can instead
+mount over the baked-in file (`-v "$PWD/artifacts:/app/artifacts"`, per the
+Dockerfile) to swap models without a rebuild. The realistic bottleneck at high
+load is per-request JSON (de)serialization, not inference — batching the
+`/predict` endpoint would be the first optimization if needed.
 
 ## Testing strategy
 

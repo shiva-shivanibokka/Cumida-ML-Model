@@ -173,8 +173,10 @@ Both call the same functions, so there is one source of truth for every step.
 You have the dataset CSV in the repo folder already.
 
 ```bash
-# 1. Install (editable) — brings in the package and all dependencies
-pip install -e .
+# 1. Install (editable) with the extras for the full workflow.
+#    serve = FastAPI/uvicorn/pydantic · train = plotting + Bayesian search · dev = pytest
+pip install -e ".[serve,train,dev]"
+# (Serving only? The lean install the Docker image uses is just: pip install ".[serve]")
 
 # 2. Train everything and write artifacts/ (model, metrics, splits)
 python train.py
@@ -193,9 +195,9 @@ Everything auto-detects local mode — no path editing. Want a faster smoke test
 ### Option B — Google Colab
 
 1. Upload the notebooks (and the dataset CSV to a Drive folder).
-2. In the first cell of any notebook, install the package from your clone:
-   `!pip install -e /content/Cumida-ML-Model` (or `!pip install scikit-optimize`
-   plus the repo on `sys.path`).
+2. In the first cell of any notebook, install the package (with the `train`
+   extra, which adds plotting + `scikit-optimize`) from your clone:
+   `!pip install -e "/content/Cumida-ML-Model[train]"`.
 3. Set the data location if it isn't the default:
    `%env LIVER_HCC_DATA_DIR=/content/drive/MyDrive/your-folder`
 4. Run notebooks `01 → 02 → 03 → 04` in order.
@@ -291,7 +293,9 @@ pytest
   `VarianceThreshold` after scaling is a no-op (the original bug), and a leakage
   guard that selection precedes the classifier in the pipeline.
 - `tests/test_api.py` — the `/`, `/health`, `/model`, and `/predict` contracts against a
-  tiny synthetic model, so tests run in milliseconds without the dataset.
+  tiny synthetic model (so tests run in milliseconds without the dataset), plus a
+  regression test that `/predict` stays warning-free (clean structured logs) and a
+  fallback test that the demo page still renders when no artifacts are present.
 
 **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `pytest` and an
 import check on every push and pull request, on Python 3.11 and 3.12.
@@ -324,15 +328,18 @@ cancer vs a false alarm).
 
 ## Libraries
 
-| Library | Purpose |
-|---|---|
-| `pandas`, `numpy` | Data handling |
-| `scikit-learn` | Models, pipeline, selection, metrics |
-| `scikit-optimize` | `BayesSearchCV` for Gradient Boosting tuning |
-| `matplotlib`, `seaborn` | Plots |
-| `joblib` | Model serialisation |
-| `fastapi`, `uvicorn`, `pydantic` | Serving layer |
-| `pytest`, `httpx` | Tests |
+Dependencies are split into extras in `pyproject.toml` so the serving image stays
+lean (it installs only the core + `serve` group — no plotting or tuning libraries):
+
+| Library | Purpose | Group |
+|---|---|---|
+| `pandas`, `numpy` | Data handling | core |
+| `scikit-learn` | Models, pipeline, selection, metrics | core |
+| `joblib` | Model serialisation | core |
+| `fastapi`, `uvicorn`, `pydantic` | Serving layer | `serve` |
+| `scikit-optimize` | `BayesSearchCV` for Gradient Boosting tuning | `train` |
+| `matplotlib`, `seaborn` | Plots (notebooks) | `train` |
+| `pytest`, `httpx` | Tests | `dev` |
 
 ---
 
@@ -371,6 +378,5 @@ Honest about what this is and isn't:
 
 ## License
 
-No license file is included yet — the code is shared for portfolio/review purposes. If you
-want to reuse it, open an issue or add a `LICENSE` (MIT is a common default for this kind of
-project).
+Released under the [MIT License](LICENSE) — free to use, modify, and distribute with
+attribution. The dataset (GEO **GSE14520**) is subject to its own NCBI GEO terms.
