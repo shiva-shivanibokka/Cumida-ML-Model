@@ -23,6 +23,7 @@ from typing import Any
 
 import joblib
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from . import config
@@ -85,6 +86,51 @@ app = FastAPI(
     description="Classifies liver tissue as HCC or normal from microarray gene expression.",
     version="1.0.0",
 )
+
+
+@app.get("/", response_class=HTMLResponse)
+def index() -> str:
+    """Human-friendly landing page so the root URL isn't a bare 404."""
+    try:
+        bundle = load_bundle()
+        model_line = (
+            f"{bundle['model_type']} on {len(bundle['genes'])} selected gene probes"
+        )
+    except Exception:
+        model_line = "model not loaded — run `python train.py`"
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Liver HCC Classifier API</title>
+<style>
+  :root {{ color-scheme: light dark; }}
+  body {{ font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    max-width: 640px; margin: 6vh auto; padding: 0 1.2rem; line-height: 1.6; }}
+  h1 {{ margin-bottom: .2rem; }}
+  .sub {{ opacity: .75; margin-top: 0; }}
+  code {{ background: rgba(128,128,128,.18); padding: .1rem .35rem; border-radius: 4px; }}
+  a {{ color: #2f81f7; }}
+  .card {{ border: 1px solid rgba(128,128,128,.3); border-radius: 10px;
+    padding: 1rem 1.2rem; margin: 1rem 0; }}
+  ul {{ padding-left: 1.1rem; }}
+</style></head><body>
+  <h1>🧬 Liver HCC Classifier</h1>
+  <p class="sub">Classifies liver tissue as <b>HCC</b> (hepatocellular carcinoma)
+     or <b>normal</b> from microarray gene expression.</p>
+  <div class="card">
+    <b>Model:</b> {model_line}<br>
+    <b>Status:</b> healthy
+  </div>
+  <h3>Endpoints</h3>
+  <ul>
+    <li><a href="/docs">/docs</a> — interactive API documentation (try it here)</li>
+    <li><a href="/health">/health</a> — liveness probe</li>
+    <li><a href="/model">/model</a> — the exact gene probes the model expects</li>
+    <li><code>POST /predict</code> — send gene values, get a prediction</li>
+  </ul>
+  <p class="sub">Source &amp; write-up:
+    <a href="https://github.com/shiva-shivanibokka/Cumida-ML-Model">github.com/shiva-shivanibokka/Cumida-ML-Model</a></p>
+</body></html>"""
 
 
 @app.get("/health")

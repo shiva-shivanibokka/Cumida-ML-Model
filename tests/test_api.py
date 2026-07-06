@@ -44,6 +44,13 @@ def client(tmp_path, monkeypatch):
     return TestClient(serve.app)
 
 
+def test_index_serves_landing_page(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "Liver HCC Classifier" in r.text
+
+
 def test_health_reports_model_available(client):
     r = client.get("/health")
     assert r.status_code == 200
