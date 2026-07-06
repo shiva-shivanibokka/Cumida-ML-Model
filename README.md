@@ -1,5 +1,15 @@
 # Liver Cancer Classification — Microarray Gene Expression ML
 
+> ### Recruiter TL;DR
+> - **What it is:** an end-to-end ML system that classifies liver biopsies as cancer
+>   (HCC) or healthy from 22,277-probe microarray gene expression, served as a live API
+>   with an interactive browser demo.
+> - **Hardest problem solved:** eliminated **feature-selection leakage** by moving
+>   recursive feature elimination *inside* cross-validation — closing a 15-point
+>   CV-vs-test gap so the reported scores are honest and defensible.
+> - **Result:** **0.958 test F1 / 0.996 ROC-AUC**, **69/72** held-out biopsies correct
+>   with **zero false positives**, deployed on **Google Cloud Run**.
+
 Classify liver tissue as **Hepatocellular Carcinoma (HCC)** or **normal** from
 Affymetrix microarray gene-expression profiles (GEO study **GSE14520**: 357
 samples × 22,277 gene probes). The project takes a classic high-dimensional,
@@ -11,11 +21,14 @@ in an interview.
 > Gradient Boosting) reducing 22,277 genes to ~20, wrapped in a tested Python
 > package and a FastAPI + Docker serving layer, runnable locally or on Colab.
 
-**🔴 Live demo (Google Cloud Run):** https://liver-hcc-579593244955.us-central1.run.app
-— try [`/health`](https://liver-hcc-579593244955.us-central1.run.app/health),
-[`/model`](https://liver-hcc-579593244955.us-central1.run.app/model), or the
-interactive API docs at [`/docs`](https://liver-hcc-579593244955.us-central1.run.app/docs).
-(Scales to zero, so the first request may cold-start for a few seconds.)
+**🔴 Live demo (Google Cloud Run):** **https://liver-hcc-579593244955.us-central1.run.app**
+
+Open it and click a real held-out biopsy (or draw a random one): its 20 genes render as
+a live **expression heatmap**, then the model returns a verdict and a P(HCC) confidence
+meter. The page also shows the held-out confusion matrix and the genes the model weights
+most. Also exposes the interactive
+[API docs](https://liver-hcc-579593244955.us-central1.run.app/docs).
+*(Scales to zero, so the first request may cold-start for a few seconds.)*
 
 ---
 
@@ -63,6 +76,60 @@ GB: `n_estimators=54, learning_rate=0.010, max_depth=3, subsample=0.52` on 10 ge
 
 ---
 
+## Architecture
+
+The four notebooks and the training CLI import the **same** package modules, so there
+is one implementation of every step. `train.py` produces small, committed artifacts
+(model + demo samples + metrics) that the FastAPI service bakes into a container and
+serves — locally, or on Cloud Run.
+
+```mermaid
+flowchart TD
+    CSV[("Liver_GSE14520_U133A.csv<br/>357 × 22,277 probes")] --> DATA[data.py<br/>load · clean · split]
+    DATA --> FEAT[features.py<br/>label-free reduction +<br/>leakage-free RFE pipeline]
+    FEAT --> MODELS[models.py<br/>LR GridSearch ·<br/>GB BayesSearch]
+    MODELS --> TRAIN[train.py CLI]
+    TRAIN --> ART[["artifacts/<br/>model.joblib · metrics.json · examples.json"]]
+    ART --> SERVE[serve.py<br/>FastAPI]
+    SERVE --> EP["/ demo · /predict · /model · /health · /docs"]
+    SERVE --> DOCKER[Dockerfile<br/>model baked in] --> CLOUD[["Google Cloud Run<br/>(live)"]]
+    NB[["01–04 notebooks<br/>teaching narrative"]] -. import .-> FEAT
+    NB -. import .-> MODELS
+    EVAL[evaluate.py<br/>metrics · ROC] -.-> MODELS
+```
+
+**Why this shape:** the notebooks are the *readable* narrative but delegate all logic to
+an installable package, so there's no copy-paste drift between "the notebook version" and
+"the real version." Supervised feature selection lives *inside* a scikit-learn `Pipeline`
+(not as a one-off pre-step) specifically so it is re-fit within every CV fold — the design
+decision that makes the reported scores trustworthy. Full reasoning is recorded as ADRs in
+[`docs/architecture.md`](docs/architecture.md).
+
+## Skills Demonstrated
+
+Real capabilities this repo exercises (each is backed by code in the tree, not a claim):
+
+- **Production ML deployment / MLOps** — a serving layer (`serve.py`) fully decoupled from
+  training/notebook code, with a reproducible `train.py` → versioned model artifact.
+- **Cloud deployment (Google Cloud Run)** — source-to-container build via Cloud Build, live
+  public endpoint, scale-to-zero.
+- **RESTful API design** — a FastAPI service with typed request/response schemas and a
+  documented endpoint surface (`/`, `/predict`, `/model`, `/health`, `/docs`).
+- **Containerization & Docker** — self-contained image with the model baked in and a
+  container healthcheck.
+- **Observability & monitoring** — structured JSON logging of every prediction and a
+  `/health` readiness probe.
+- **System design & architecture** — documented decisions/trade-offs as ADRs.
+- **Data engineering / feature pipeline** — raw 22,277-probe matrix → model-ready feature
+  set through staged, leakage-aware reduction.
+- **Automated testing** — `pytest` suite covering a leakage guard, a bug regression test,
+  and the API contract.
+- **Applied ML rigor** — leakage-free cross-validation, recursive feature elimination,
+  grid & Bayesian hyperparameter search, model interpretability, honest evaluation.
+- **Frontend for an ML demo** — a self-contained interactive page that calls the model live.
+
+---
+
 ## Repository structure
 
 ```
@@ -73,15 +140,17 @@ Cumida-ML-Model/
 │   ├── features.py           ← label-free cleaning + leakage-free selection pipeline
 │   ├── models.py             ← LR & GB tuning, deployable-model builder
 │   ├── evaluate.py           ← metrics & ROC helpers
-│   └── serve.py              ← FastAPI serving app
+│   └── serve.py              ← FastAPI serving app + interactive demo page
 ├── 01_eda_loading.ipynb      ← EDA (imports from the package)
 ├── 02_preprocessing.ipynb    ← label-free feature reduction + split
 ├── 03_logistic_regression.ipynb
 ├── 04_gradient_boosting.ipynb ← GB + model comparison
 ├── train.py                  ← end-to-end training CLI -> artifacts/
-├── tests/                    ← pytest (leakage guard, API contract)
-├── docs/architecture.md      ← architecture overview + ADRs
-├── Dockerfile                ← serving image
+├── tests/                    ← pytest (leakage guard, bug regression, API contract)
+├── artifacts/                ← committed: model.joblib, metrics.json, examples.json
+├── docs/                     ← architecture.md (ADRs) + deploy.md (Cloud Run)
+├── Dockerfile                ← serving image (model baked in)
+├── fly.toml · .gcloudignore  ← deployment config (Cloud Run / Fly.io)
 ├── pyproject.toml            ← package + dependencies
 └── requirements.txt
 ```
@@ -173,9 +242,11 @@ exposes:
 
 | Endpoint | Purpose |
 |---|---|
+| `GET /` | Interactive demo page — pick/draw a real biopsy, live heatmap + prediction |
 | `GET /health` | Liveness/readiness probe (used by Docker healthcheck) |
 | `GET /model` | Metadata: model type, class labels, and the exact genes it expects |
 | `POST /predict` | `{ "features": {gene_id: value, ...} }` → predicted class + P(HCC) |
+| `GET /docs` | Auto-generated interactive OpenAPI documentation |
 
 Every prediction is logged as a structured JSON line for observability.
 
@@ -274,3 +345,25 @@ finds *combinations* of genes that separate cancer from normal — the challenge
 being to do so without overfitting. **GSE14520** is well-suited to this: tumour
 and adjacent non-tumour tissue come from the same patients (a paired design),
 giving a clean, genuinely learnable signal.
+
+---
+
+## Roadmap / Limitations
+
+Honest about what this is and isn't:
+
+- **Single cohort.** Results reflect one clean, paired-design study (GSE14520). External
+  validation on an independent cohort or a different microarray platform would test
+  whether the selected genes generalise — the natural next step.
+- **No CI yet.** The `pytest` suite runs locally; a GitHub Actions workflow to run it on
+  every push would close the loop on the "automated testing" story.
+- **Probe IDs, not gene symbols.** The model uses Affymetrix probe IDs directly; mapping
+  them to gene symbols (e.g. via a GPL571 annotation) would improve biological readability.
+- **Educational, not clinical.** This is a portfolio/learning project, not a validated
+  diagnostic tool.
+
+## License
+
+No license file is included yet — the code is shared for portfolio/review purposes. If you
+want to reuse it, open an issue or add a `LICENSE` (MIT is a common default for this kind of
+project).
