@@ -10,6 +10,10 @@
 > - **Result:** **0.958 test F1 / 0.996 ROC-AUC**, **69/72** held-out biopsies correct
 >   with **zero false positives**, deployed on **Google Cloud Run**.
 
+[![CI](https://github.com/shiva-shivanibokka/Cumida-ML-Model/actions/workflows/ci.yml/badge.svg)](https://github.com/shiva-shivanibokka/Cumida-ML-Model/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](pyproject.toml)
+
 Classify liver tissue as **Hepatocellular Carcinoma (HCC)** or **normal** from
 Affymetrix microarray gene-expression profiles (GEO study **GSE14520**: 357
 samples × 22,277 gene probes). The project takes a classic high-dimensional,
@@ -119,6 +123,8 @@ Real capabilities this repo exercises (each is backed by code in the tree, not a
   container healthcheck.
 - **Observability & monitoring** — structured JSON logging of every prediction and a
   `/health` readiness probe.
+- **CI/CD** — GitHub Actions runs the test suite and an import check on every push/PR,
+  across Python 3.11 and 3.12.
 - **System design & architecture** — documented decisions/trade-offs as ADRs.
 - **Data engineering / feature pipeline** — raw 22,277-probe matrix → model-ready feature
   set through staged, leakage-aware reduction.
@@ -284,8 +290,11 @@ pytest
 - `tests/test_features.py` — the raw-variance filter, a **regression test** proving
   `VarianceThreshold` after scaling is a no-op (the original bug), and a leakage
   guard that selection precedes the classifier in the pipeline.
-- `tests/test_api.py` — the `/health`, `/model`, and `/predict` contracts against a
+- `tests/test_api.py` — the `/`, `/health`, `/model`, and `/predict` contracts against a
   tiny synthetic model, so tests run in milliseconds without the dataset.
+
+**CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `pytest` and an
+import check on every push and pull request, on Python 3.11 and 3.12.
 
 ---
 
@@ -355,8 +364,6 @@ Honest about what this is and isn't:
 - **Single cohort.** Results reflect one clean, paired-design study (GSE14520). External
   validation on an independent cohort or a different microarray platform would test
   whether the selected genes generalise — the natural next step.
-- **No CI yet.** The `pytest` suite runs locally; a GitHub Actions workflow to run it on
-  every push would close the loop on the "automated testing" story.
 - **Probe IDs, not gene symbols.** The model uses Affymetrix probe IDs directly; mapping
   them to gene symbols (e.g. via a GPL571 annotation) would improve biological readability.
 - **Educational, not clinical.** This is a portfolio/learning project, not a validated

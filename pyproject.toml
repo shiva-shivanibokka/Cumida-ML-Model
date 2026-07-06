@@ -7,6 +7,7 @@ name = "liver-hcc"
 version = "1.0.0"
 description = "Liver HCC classification from GSE14520 microarray gene expression"
 readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.9"
 dependencies = [
     "pandas>=1.5",
