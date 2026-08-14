@@ -1,5 +1,15 @@
 # Liver Cancer Classification — Microarray Gene Expression ML
 
+> [!IMPORTANT]
+> **The hosted demo is temporary.** This project's backend runs on Google Cloud
+> Run under a Google Cloud free trial that ends **around 19 September 2026**.
+> When the trial closes the service is stopped, and every `run.app` link below
+> stops responding.
+>
+> Nothing in this repository depends on that. The code, tests and results are
+> complete, and the instructions below run the whole thing locally.
+
+
 > ### Recruiter TL;DR
 > - **What it is:** an end-to-end ML system that classifies liver biopsies as cancer
 >   (HCC) or healthy from 22,277-probe microarray gene expression, served as a live API
