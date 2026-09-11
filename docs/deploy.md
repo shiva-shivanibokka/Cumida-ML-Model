@@ -8,7 +8,7 @@ There are two artifacts here and only one of them is hosted.
 (`scripts/export_web_artifacts.py`) and evaluated in the browser by `web/lib/model.ts`, so
 the page has **no backend at all** — it is a folder of files.
 
-- **Live:** <https://liver-hcc.vercel.app>
+- **Live:** <https://liver-hcc-shiv-a.vercel.app>
 - **Host:** Vercel, git-connected, root directory `web`. Every push to `main` redeploys.
 
 ```bash
