@@ -2,7 +2,7 @@
 # For a fully reproducible local run:  pip install -r requirements.txt
 pandas>=1.5
 numpy>=1.23
-scikit-learn>=1.1,<1.10   # see pyproject.toml: `penalty=` is removed in 1.10
+scikit-learn==1.8.0       # exact: it is the version that wrote artifacts/model.joblib
 scikit-optimize>=0.9
 matplotlib>=3.5
 seaborn>=0.12

@@ -15,12 +15,19 @@ requires-python = ">=3.11"
 dependencies = [
     "pandas>=1.5",
     "numpy>=1.23",
-    # Upper bound is deliberate. LogisticRegression's `penalty=` is deprecated
-    # in 1.8 and removed in 1.10, and the tuned model is specified with it. The
-    # replacement (`l1_ratio=1`) is a silent no-op on <1.8 -- it fits L2 while
-    # looking like L1 -- so there is no single spelling that is correct across
-    # the whole range. Declaring the ceiling beats discovering it.
-    "scikit-learn>=1.1,<1.10",
+    # Pinned to the exact version, not a range, because this repo *ships a
+    # pickle*. artifacts/model.joblib was written by 1.8.0 and scikit-learn
+    # 1.9.1 cannot read it -- `ModuleNotFoundError: No module named '_loss'`,
+    # which names nothing a reader would connect to a version skew. A range
+    # here means CI resolves to whatever is newest and fails on an artifact
+    # that is perfectly good.
+    #
+    # The ceiling would have been needed anyway: LogisticRegression's
+    # `penalty=` is deprecated in 1.8 and removed in 1.10, and the tuned model
+    # is specified with it. Its replacement (`l1_ratio=1`) is a silent no-op
+    # before 1.8 -- it fits L2 while looking like L1 -- so no single spelling
+    # is correct across a range.
+    "scikit-learn==1.8.0",
     "joblib>=1.2",
 ]
 

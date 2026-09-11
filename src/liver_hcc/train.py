@@ -29,6 +29,7 @@ import time
 
 import joblib
 import pandas as pd
+import sklearn
 
 from . import config, data, evaluate, features, models
 
@@ -196,6 +197,11 @@ def main() -> None:
             "model_type": winner,
             "class_pos": config.CLASS_POS,
             "class_neg": config.CLASS_NEG,
+            # The version that wrote this file. A pickle is tied to it: 1.9.1
+            # cannot read what 1.8.0 wrote, and says so as
+            # "ModuleNotFoundError: No module named '_loss'", which points
+            # nowhere near the cause. Recorded so the mismatch can name itself.
+            "sklearn_version": sklearn.__version__,
             "all_models": {
                 "Logistic Regression": {"model": lr_model, "genes": list(lr_genes)},
                 "Gradient Boosting": {"model": gb_model, "genes": list(gb_genes)},

@@ -16,11 +16,33 @@ import joblib
 import numpy as np
 import pandas as pd
 import pytest
+import sklearn
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 
 from liver_hcc import config
 
-BUNDLE = joblib.load(config.MODEL_PATH)
+
+def _load_bundle():
+    """Load the shipped model, and explain a version skew rather than crashing.
+
+    A joblib pickle is tied to the scikit-learn that wrote it. Reading one
+    written by 1.8.0 under 1.9.1 raises `ModuleNotFoundError: No module named
+    '_loss'` -- a message that names nothing a reader would connect to the
+    cause, and which cost a red CI build to diagnose. So the version is
+    recorded at training time and checked here first.
+    """
+    try:
+        return joblib.load(config.MODEL_PATH)
+    except ModuleNotFoundError as exc:  # pragma: no cover - only on a skew
+        raise AssertionError(
+            f"could not read {config.MODEL_PATH.name} ({exc}). This is almost "
+            f"certainly a scikit-learn version skew: you have "
+            f"{sklearn.__version__}, and the artifact records the version that "
+            f"wrote it. pyproject.toml pins the exact version for this reason."
+        ) from exc
+
+
+BUNDLE = _load_bundle()
 METRICS = json.loads(config.METRICS_PATH.read_text(encoding="utf-8"))
 EXAMPLES = json.loads(config.EXAMPLES_PATH.read_text(encoding="utf-8"))
 SPLIT = json.loads(config.SPLIT_PATH.read_text(encoding="utf-8"))
@@ -34,6 +56,17 @@ def _held_out(genes):
     )
     y = np.array([1 if row["label"] == config.CLASS_POS else 0 for row in EXAMPLES["samples"]])
     return X, y
+
+
+def test_the_installed_sklearn_is_the_one_that_wrote_the_model():
+    """Pickles are version-bound; say so before a downstream test fails oddly."""
+    written_by = BUNDLE.get("sklearn_version")
+    assert written_by, "the bundle does not record which scikit-learn wrote it"
+    assert sklearn.__version__ == written_by, (
+        f"artifacts/model.joblib was written by scikit-learn {written_by} and "
+        f"you have {sklearn.__version__}. Predictions from a cross-version "
+        "unpickle cannot be trusted even when it succeeds."
+    )
 
 
 def test_the_shipped_demo_samples_are_the_held_out_set():
