@@ -22,16 +22,28 @@ interface Props {
 
 const HCC = "HCC";
 
-/** Divergent expression colour: cool below the training mean, warm above. */
-function colour(z: number): string {
+/**
+ * Divergent expression colour, in the two stains the rest of the page is read
+ * in: haematoxylin violet below the training mean, eosin pink above, passing
+ * through a near-white middle.
+ *
+ * The middle is pale enough that white numerals disappear into it, so the ink
+ * is chosen from the swatch's own luminance rather than fixed.
+ */
+const HAEM = [78, 44, 122];
+const PALE = [236, 226, 233];
+const EOSIN = [194, 86, 107];
+
+function swatch(z: number): { background: string; color: string } {
   const clamped = Math.max(-2, Math.min(2, z));
   const t = (clamped + 2) / 4;
-  const cold = [47, 127, 168];
-  const mid = [190, 188, 178];
-  const hot = [194, 69, 60];
-  const [a, b, u] = t < 0.5 ? [cold, mid, t * 2] : [mid, hot, (t - 0.5) * 2];
-  const mix = a.map((v, i) => Math.round(v + (b[i] - v) * u));
-  return `rgb(${mix.join(",")})`;
+  const [a, b, u] = t < 0.5 ? [HAEM, PALE, t * 2] : [PALE, EOSIN, (t - 0.5) * 2];
+  const rgb = a.map((v, i) => Math.round(v + (b[i] - v) * u));
+  const luminance = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+  return {
+    background: `rgb(${rgb.join(",")})`,
+    color: luminance > 0.62 ? "#241520" : "#fff",
+  };
 }
 
 export default function Readout({ models, winner, genes, biopsies, stats }: Props) {
@@ -108,7 +120,7 @@ export default function Readout({ models, winner, genes, biopsies, stats }: Prop
               <div className="gene" key={gene}>
                 <div
                   className="swatch"
-                  style={{ background: colour(z) }}
+                  style={swatch(z)}
                   title={
                     `${gene}: ${biopsy.values[gene].toFixed(2)} `
                     + `(${z >= 0 ? "+" : ""}${z.toFixed(2)} SD vs training mean)`
