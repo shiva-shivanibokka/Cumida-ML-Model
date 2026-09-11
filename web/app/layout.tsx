@@ -46,10 +46,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Logo />
               <strong>Liver HCC Classifier</strong>
             </span>
-            <span className="byline">
-              Built by Shivani Bokka ·{" "}
-              <a href="https://github.com/shiva-shivanibokka/Cumida-ML-Model">Source</a>
-            </span>
+            <a
+              className="byline"
+              href="https://github.com/shiva-shivanibokka/Cumida-ML-Model"
+            >
+              Source
+            </a>
           </div>
         </header>
         {children}

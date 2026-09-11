@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import Hint from "./Hint.tsx";
 import { predict, type Model } from "../lib/model.ts";
 
 interface Biopsy {
@@ -112,6 +113,11 @@ export default function Readout({ models, winner, genes, biopsies, stats }: Prop
           expression · biopsy {biopsy.id} · patient {biopsy.patient} ·{" "}
           {biopsy.tissue === "A" ? "tumour site" : "adjacent non-tumour site"}
         </div>
+        <Hint>
+          One square per gene the models use, for <strong>this</strong> biopsy,
+          expressed as standard deviations from the training mean. Violet is
+          below that mean, pink above.
+        </Hint>
         <div className="heat">
           {genes.map((gene) => {
             const stat = stats[gene] ?? { mean: 0, std: 1 };
@@ -146,6 +152,11 @@ export default function Readout({ models, winner, genes, biopsies, stats }: Prop
       <div className="verdicts">
         {calls.map(({ name, p, says }) => (
           <div className="verdict" key={name}>
+            <Hint>
+              This model&rsquo;s probability that the biopsy above is carcinoma,
+              computed here in the page from its exported parameters. Anything
+              over 50% is a call of HCC.
+            </Hint>
             <div className="who">
               <span>{name}</span>
               {name === winner && <span className="crown">shipped model</span>}

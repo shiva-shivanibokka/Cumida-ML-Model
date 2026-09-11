@@ -111,21 +111,21 @@ export default function Tissue() {
 
         g.beginPath();
         g.ellipse(0, 0, o.rr, o.rr * o.squash, 0, 0, 7);
-        g.fillStyle = `rgba(216,124,140,${0.045 + o.tone * 0.04})`;
+        g.fillStyle = `rgba(216,124,140,${0.03 + o.tone * 0.028})`;
         g.fill();
-        g.strokeStyle = `rgba(172,80,100,${0.055 + o.tone * 0.045})`;
+        g.strokeStyle = `rgba(172,80,100,${0.036 + o.tone * 0.03})`;
         g.lineWidth = 1;
         g.stroke();
 
         // Roughly a tenth of hepatocytes are binucleate.
         g.beginPath();
         g.ellipse(o.rr * o.nx, o.rr * o.ny, o.nr, o.nr * 0.9, 0, 0, 7);
-        g.fillStyle = `rgba(78,44,122,${0.1 + o.tone * 0.075})`;
+        g.fillStyle = `rgba(78,44,122,${0.066 + o.tone * 0.05})`;
         g.fill();
         if (o.bi) {
           g.beginPath();
           g.ellipse(-o.rr * o.nx, -o.rr * o.ny, o.nr * 0.85, o.nr * 0.78, 0, 0, 7);
-          g.fillStyle = `rgba(78,44,122,${0.085 + o.tone * 0.06})`;
+          g.fillStyle = `rgba(78,44,122,${0.056 + o.tone * 0.04})`;
           g.fill();
         }
         g.restore();

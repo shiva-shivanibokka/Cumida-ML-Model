@@ -33,8 +33,9 @@
   --serif: "Fraunces", Georgia, "Times New Roman", serif;
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* the two-inch gutter, collapsing on narrow screens */
-  --pad: clamp(1.1rem, 13vw, 2in);
+  /* The gutter is two inches, flat -- not a proportion that happens to land
+     near it. Below the breakpoint there is no room for one, so it collapses. */
+  --pad: 1.1rem;
   --radius: 6px;
   --lift: 0 18px 50px -34px rgba(53, 30, 76, .55);
   color-scheme: light;
@@ -65,7 +66,13 @@ body {
 
 main, .masthead { position: relative; z-index: 1; }
 
-.shell { max-width: 1100px; margin: 0 auto; padding-inline: var(--pad); }
+/* No max-width: a cap would add empty margin *outside* the gutter, so the
+   page would sit in more than the two inches asked for. The gutter is the
+   whole margin; the prose blocks inside cap their own measure. */
+.shell { margin: 0 auto; padding-inline: var(--pad); }
+
+/* 900px is where 2in of gutter on each side still leaves a usable column. */
+@media (min-width: 900px) { :root { --pad: 2in; } }
 
 /* Every surface that carries text is glass: the tissue stays visible through
    it, but the copy keeps its own contrast. */
@@ -247,7 +254,7 @@ h2 {
   border-radius: var(--radius); padding: .85rem .95rem;
 }
 .stat .n {
-  font-family: var(--mono); font-size: 1.42rem; font-variant-numeric: tabular-nums;
+  font-family: var(--mono); font-size: 1.42rem; padding-right: 1.5rem; font-variant-numeric: tabular-nums;
   letter-spacing: -.02em;
 }
 .stat .l { font-size: .8rem; color: var(--muted); margin-top: .2rem; }
@@ -333,6 +340,10 @@ tr.win td { background: var(--sunk); }
 .foot a { color: var(--accent); }
 .foot p { margin: 0 0 .5rem; max-width: 74ch; }
 .foot p:last-child { margin-bottom: 0; }
+.signoff {
+  margin-top: 1rem; padding-top: .9rem; border-top: 1px solid var(--line);
+  font-size: 1rem; color: var(--ink);
+}
 
 :where(a):focus-visible, :where(button):focus-visible {
   outline: 2px solid var(--cold); outline-offset: 2px;
@@ -341,4 +352,39 @@ tr.win td { background: var(--sunk); }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
   #tissue { opacity: .8; }
+}
+
+/* --- hints --------------------------------------------------------------- */
+/* Each box carries a "?" in its top-right corner. The boxes are positioned so
+   the mark has something to anchor to. */
+.panel, .stat, .verdict { position: relative; }
+.panel > .hint, .stat > .hint, .verdict > .hint { position: absolute; top: .55rem; right: .6rem; }
+/* Reserve the corner the mark sits in, so a long row label or the "shipped
+   model" tag does not run underneath it. */
+.panel > .rowlabel, .verdict .who { padding-right: 1.5rem; }
+
+.hint { display: inline-flex; line-height: 1; z-index: 4; }
+.hint-mark {
+  width: 17px; height: 17px; padding: 0; cursor: help;
+  display: grid; place-items: center;
+  font-family: var(--mono); font-size: .64rem; font-weight: 500;
+  color: var(--faint); background: rgba(255, 255, 255, .8);
+  border: 1px solid var(--line); border-radius: 50%;
+}
+.hint-mark:hover { color: var(--cold); border-color: var(--cold); }
+.hint-body {
+  position: absolute; top: calc(100% + .45rem); right: 0; width: max-content; max-width: 30ch;
+  padding: .5rem .65rem; font-family: var(--serif); font-size: .8rem; line-height: 1.45;
+  color: var(--muted); text-align: left; text-transform: none; letter-spacing: normal;
+  background: #fffdfe; border: 1px solid var(--line); border-radius: 5px;
+  box-shadow: 0 14px 34px -22px rgba(53, 30, 76, .8);
+  opacity: 0; visibility: hidden; transition: opacity .12s ease;
+}
+.hint:hover .hint-body, .hint:focus-within .hint-body { opacity: 1; visibility: visible; }
+.hint-body strong { color: var(--ink); }
+
+/* Near the right edge of a narrow screen the tooltip would run off; pin it to
+   the viewport-safe side instead. */
+@media (max-width: 560px) {
+  .hint-body { right: auto; left: 0; max-width: 24ch; }
 }

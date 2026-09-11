@@ -1,3 +1,4 @@
+import Hint from "./Hint.tsx";
 import Readout from "./Readout.tsx";
 import Tabs from "./Tabs.tsx";
 import type { Model } from "../lib/model.ts";
@@ -90,6 +91,13 @@ export default function Page() {
               </p>
 
               <div className="panel interval">
+                <Hint>
+                  The upright tick is the shipped model&rsquo;s F1. The band is where
+                  that score would land if the {interval.n_test} test biopsies had been
+                  a different {interval.n_test}, drawn the same way — resampled{" "}
+                  {interval.draws.toLocaleString()} times. The two rings are the same
+                  pipeline under each split strategy.
+                </Hint>
                 <div className="rowlabel">F1 on the held-out biopsies, 95% bootstrap interval</div>
                 <div className="track">
                   <span className="rail" />
@@ -136,7 +144,14 @@ export default function Page() {
                 </p>
               </div>
 
-              <div className="scroller" style={{ marginTop: "1.1rem" }}>
+              <div className="panel" style={{ marginTop: "1.1rem" }}>
+                <Hint>
+                  Every metric each model scores on the held-out biopsies. CV F1 is
+                  the one column that never saw them — it comes from the
+                  cross-validation folds inside training.
+                </Hint>
+                <div className="rowlabel">the two models, side by side</div>
+                <div className="scroller">
                 <table>
                   <thead>
                     <tr>
@@ -166,6 +181,7 @@ export default function Page() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
               <p className="note">
                 F1, precision and recall agree to the last digit — but not because the
@@ -178,6 +194,11 @@ export default function Page() {
               </p>
 
               <div className="panel" style={{ marginTop: "1.1rem" }}>
+                <Hint>
+                  The biopsies where the two models return different verdicts. Each
+                  figure is that model&rsquo;s probability of carcinoma; over 50% is a
+                  call of HCC.
+                </Hint>
                 <div className="rowlabel">
                   the {agree.disagreements} biopsies they disagree about
                 </div>
@@ -233,16 +254,31 @@ export default function Page() {
               </p>
               <div className="stats">
                 <div className="stat">
+                  <Hint>
+                    Take the single most informative probe, ignore the other{" "}
+                    {(ceiling.n_probes - 1).toLocaleString()}, and threshold it. No
+                    training, no combining. This is the floor a model has to beat.
+                  </Hint>
                   <div className="n">{f4(ceiling.best_auc)}</div>
                   <div className="l">
                     AUC of the single best probe, <code>{ceiling.best_probe}</code>, used alone
                   </div>
                 </div>
                 <div className="stat">
+                  <Hint>
+                    How many probes reach that standard on their own. A count this
+                    high means the tumour signal is spread across the whole array,
+                    not hidden somewhere a model had to find it.
+                  </Hint>
                   <div className="n">{ceiling.probes_over_95}</div>
                   <div className="l">probes that clear 0.95 AUC on their own</div>
                 </div>
                 <div className="stat">
+                  <Hint>
+                    The shipped model, tuned on {metrics.gradient_boosting.n_genes}{" "}
+                    genes — here so the two figures beside it have something to be
+                    compared against.
+                  </Hint>
                   <div className="n">{f4(metrics.gradient_boosting.roc_auc)}</div>
                   <div className="l">AUC of the tuned 20-gene model</div>
                 </div>
@@ -268,6 +304,11 @@ export default function Page() {
             </p>
             <div className="stats">
               <div className="stat">
+                <Hint>
+                  Under the split this project started with, this many test biopsies
+                  came from a patient whose <strong>other</strong> biopsy was in
+                  training. The model had effectively met that liver already.
+                </Hint>
                 <div className="n" style={{ color: "var(--hot)" }}>
                   {oldLeak.leaked} / {oldLeak.of}
                 </div>
@@ -277,6 +318,11 @@ export default function Page() {
                 </div>
               </div>
               <div className="stat">
+                <Hint>
+                  Under the split actually used. Grouping keeps every biopsy from one
+                  patient on the same side, so a held-out liver is one the model has
+                  never seen in any form.
+                </Hint>
                 <div className="n" style={{ color: "var(--ok)" }}>
                   0
                 </div>
@@ -285,6 +331,12 @@ export default function Page() {
                 </div>
               </div>
               <div className="stat">
+                <Hint>
+                  What closing the leak cost, in F1, averaged over {split.seeds}{" "}
+                  different splits. Negative means the honest split scores lower —
+                  the expected direction, and the reason for measuring rather than
+                  asserting it.
+                </Hint>
                 <div className="n">{split.cost_of_grouping_f1.toFixed(3)}</div>
                 <div className="l">
                   F1 the grouping costs, averaged over {split.seeds} splits
@@ -301,6 +353,11 @@ export default function Page() {
             </p>
 
             <div className="panel" style={{ marginTop: "1.1rem" }}>
+              <Hint>
+                The same pipeline run both ways — same features, same hyperparameter
+                search, same {split.seeds} seeds. Only the splitter changes, so the
+                gap between these rows is the leak and nothing else.
+              </Hint>
               <div className="rowlabel">the same pipeline under both split strategies</div>
               <div className="scroller">
                 <table>
@@ -358,6 +415,15 @@ export default function Page() {
               );
               return (
                 <div className="panel" key={name} style={{ marginBottom: ".9rem" }}>
+                  <Hint>
+                    {w.signed
+                      ? `Bar length is how far a gene moves the decision, direction is
+                         which way. A dash means the L1 penalty zeroed it — the gene
+                         was selected, then ignored.`
+                      : `How much each gene reduced impurity across all the trees.
+                         Always positive, so it says how much a gene matters but never
+                         which way it points.`}
+                  </Hint>
                   <div className="rowlabel">
                     {name} ·{" "}
                     {w.signed
@@ -471,6 +537,10 @@ export default function Page() {
             </ol>
 
             <div className="panel" style={{ marginTop: "1.4rem" }}>
+              <Hint>
+                The values the grid search chose inside the cross-validation folds.
+                The held-out biopsies played no part in picking them.
+              </Hint>
               <div className="rowlabel">what the search settled on</div>
               <div className="scroller">
                 <table>
@@ -504,6 +574,11 @@ export default function Page() {
             </div>
 
             <div className="panel" style={{ marginTop: ".9rem" }}>
+              <Hint>
+                Counts on the held-out biopsies: tumours called correctly, tumours
+                missed, healthy tissue called cancer, healthy tissue called correctly.
+                Every metric on this page is arithmetic on these four numbers.
+              </Hint>
               <div className="rowlabel">
                 the confusion matrix both models arrive at, on {metrics.n_test} held-out biopsies
               </div>
@@ -547,8 +622,9 @@ export default function Page() {
             Affymetrix probes. CuMiDa is the curated redistribution; the underlying study
             is GEO GSE14520.
           </p>
-          <p>
-            Educational project, not a clinical tool. Built by Shivani Bokka ·{" "}
+          <p>Educational project, not a clinical tool.</p>
+          <p className="signoff">
+            Built by Shivani Bokka ·{" "}
             <a href="https://github.com/shiva-shivanibokka/Cumida-ML-Model">
               source on GitHub
             </a>

@@ -7,7 +7,7 @@ the score.**
 
 Built by Shivani Bokka.
 
-**Try it: <https://liver-hcc-shiv-a.vercel.app>** — pick a held-out biopsy and both models run
+**Try it: <https://liver-hcc.vercel.app>** — pick a held-out biopsy and both models run
 **in your browser**. There is no backend.
 
 [![CI](https://github.com/shiva-shivanibokka/Cumida-ML-Model/actions/workflows/ci.yml/badge.svg)](https://github.com/shiva-shivanibokka/Cumida-ML-Model/actions/workflows/ci.yml)
