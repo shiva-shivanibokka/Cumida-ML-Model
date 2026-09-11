@@ -4,11 +4,15 @@ Liver_GSE14520_U133A.csv
 # Generated intermediate splits (large, regenerable by train.py / Notebook 02)
 artifacts/*.csv
 
-# Keep the small, useful artifacts committed so the repo is demo-able without
-# a full retrain:  !artifacts/model.joblib  !artifacts/metrics.json
-# (negations below re-include them despite broader ignores)
-!artifacts/model.joblib
-!artifacts/metrics.json
+# Raw GEO series matrices, downloaded to recover the patient behind each biopsy.
+# 23 MB, and scripts/build_patient_map.py --fetch re-downloads them; only the
+# small map it distils (data/patients.csv) is worth committing.
+artifacts/geo/
+
+# Everything else under artifacts/ IS committed on purpose -- the model, the
+# metrics, the demo samples, the split assignment and the honesty numbers are
+# all small, and they are what makes the repo demo-able and checkable without
+# a 128 MB dataset and a retrain.
 
 # Python
 __pycache__/

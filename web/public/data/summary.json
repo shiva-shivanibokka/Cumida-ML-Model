@@ -1,0 +1,270 @@
+{
+ "metrics": {
+  "logistic_regression": {
+   "f1": 0.958904109589041,
+   "roc_auc": 0.9683641975308642,
+   "precision": 0.9459459459459459,
+   "recall": 0.9722222222222222,
+   "confusion": {
+    "tp": 35,
+    "fn": 1,
+    "fp": 2,
+    "tn": 34
+   },
+   "cv_f1": 0.9714153642967203,
+   "best_params": {
+    "clf__C": 0.1,
+    "clf__penalty": "l1",
+    "rfe__n_features_to_select": 10
+   },
+   "n_genes": 10
+  },
+  "gradient_boosting": {
+   "f1": 0.958904109589041,
+   "roc_auc": 0.9891975308641976,
+   "precision": 0.9459459459459459,
+   "recall": 0.9722222222222222,
+   "confusion": {
+    "tp": 35,
+    "fn": 1,
+    "fp": 2,
+    "tn": 34
+   },
+   "cv_f1": 0.9650125313283209,
+   "best_params": {
+    "clf__learning_rate": 0.048505889047947094,
+    "clf__max_depth": 3,
+    "clf__n_estimators": 180,
+    "clf__subsample": 0.5,
+    "rfe__n_features_to_select": 20
+   },
+   "n_genes": 20
+  },
+  "winner": "Gradient Boosting",
+  "n_train": 285,
+  "n_test": 72,
+  "n_probes": 22277,
+  "n_probes_after_label_free_reduction": 18580,
+  "split": {
+   "strategy": "StratifiedGroupKFold, grouped by patient",
+   "n_patients_total": 189,
+   "n_patients_paired": 165,
+   "n_patients_train": 151,
+   "n_patients_test": 38,
+   "patients_on_both_sides": 0
+  }
+ },
+ "honesty": {
+  "stratified_split_leak": {
+   "leaked": 48,
+   "of": 72,
+   "share": 0.6666666666666666
+  },
+  "held_out_interval": {
+   "point": 0.958904109589041,
+   "ci_low": 0.9032258064516129,
+   "ci_high": 1.0,
+   "ci_width": 0.09677419354838712,
+   "n_test": 72,
+   "draws": 10000
+  },
+  "split_comparison": {
+   "random": {
+    "f1_mean": 0.9615935170728269,
+    "f1_std": 0.019495671115841367,
+    "auc_mean": 0.9761389961389961,
+    "patient_overlap": 0.7555555555555555
+   },
+   "grouped": {
+    "f1_mean": 0.9531869608369703,
+    "f1_std": 0.02735578726536947,
+    "auc_mean": 0.9679727346394014,
+    "patient_overlap": 0.0
+   },
+   "cost_of_grouping_f1": -0.008407,
+   "seeds": 10
+  },
+  "single_probe_ceiling": {
+   "best_probe": "207804_s_at",
+   "best_auc": 0.9799409844299347,
+   "probes_over_95": 108,
+   "probes_over_90": 757,
+   "median_auc": 0.6363636363636364,
+   "n_probes": 22277
+  },
+  "model_type": "Gradient Boosting"
+ },
+ "agreement": {
+  "n": 72,
+  "disagreements": 2,
+  "disputed": [
+   {
+    "id": "GSM362981",
+    "truth": "normal",
+    "Logistic Regression": 0.28048593596,
+    "Gradient Boosting": 0.746752282444
+   },
+   {
+    "id": "GSM363154",
+    "truth": "normal",
+    "Logistic Regression": 0.517554256045,
+    "Gradient Boosting": 0.104422863822
+   }
+  ],
+  "errors": {
+   "Logistic Regression": [
+    "GSM363335",
+    "GSM363105",
+    "GSM363154"
+   ],
+   "Gradient Boosting": [
+    "GSM363335",
+    "GSM362981",
+    "GSM363105"
+   ]
+  },
+  "shared_errors": [
+   "GSM363105",
+   "GSM363335"
+  ]
+ },
+ "weights": {
+  "Logistic Regression": {
+   "signed": true,
+   "genes": [
+    {
+     "gene": "203316_s_at",
+     "weight": 0.0
+    },
+    {
+     "gene": "203554_x_at",
+     "weight": 0.656841542996
+    },
+    {
+     "gene": "204428_s_at",
+     "weight": 0.0
+    },
+    {
+     "gene": "205019_s_at",
+     "weight": -0.614232780792
+    },
+    {
+     "gene": "205911_at",
+     "weight": 0.0
+    },
+    {
+     "gene": "207804_s_at",
+     "weight": -0.275732765586
+    },
+    {
+     "gene": "209365_s_at",
+     "weight": 0.0
+    },
+    {
+     "gene": "210481_s_at",
+     "weight": -0.425309550532
+    },
+    {
+     "gene": "218002_s_at",
+     "weight": -1.13146848422
+    },
+    {
+     "gene": "220114_s_at",
+     "weight": 0.0
+    }
+   ]
+  },
+  "Gradient Boosting": {
+   "signed": false,
+   "genes": [
+    {
+     "gene": "200910_at",
+     "weight": 0.016871054491
+    },
+    {
+     "gene": "203316_s_at",
+     "weight": 0.005509181161
+    },
+    {
+     "gene": "203554_x_at",
+     "weight": 0.053065352537
+    },
+    {
+     "gene": "204428_s_at",
+     "weight": 0.007371709264
+    },
+    {
+     "gene": "204955_at",
+     "weight": 0.006833463867
+    },
+    {
+     "gene": "205019_s_at",
+     "weight": 0.128853202235
+    },
+    {
+     "gene": "205866_at",
+     "weight": 0.006476414633
+    },
+    {
+     "gene": "205911_at",
+     "weight": 0.023669198169
+    },
+    {
+     "gene": "207262_at",
+     "weight": 0.081399868838
+    },
+    {
+     "gene": "207584_at",
+     "weight": 0.018469031439
+    },
+    {
+     "gene": "207609_s_at",
+     "weight": 0.025055206263
+    },
+    {
+     "gene": "207804_s_at",
+     "weight": 0.016442082844
+    },
+    {
+     "gene": "207995_s_at",
+     "weight": 0.02054291339
+    },
+    {
+     "gene": "208822_s_at",
+     "weight": 0.008452175886
+    },
+    {
+     "gene": "209365_s_at",
+     "weight": 0.123582878969
+    },
+    {
+     "gene": "210481_s_at",
+     "weight": 0.15004902667
+    },
+    {
+     "gene": "212554_at",
+     "weight": 0.016969111834
+    },
+    {
+     "gene": "218002_s_at",
+     "weight": 0.240160426077
+    },
+    {
+     "gene": "218061_at",
+     "weight": 0.045468004316
+    },
+    {
+     "gene": "220114_s_at",
+     "weight": 0.004759697118
+    }
+   ]
+  }
+ },
+ "dataset": {
+  "name": "CuMiDa Liver_GSE14520_U133A",
+  "source": "GEO GSE14520 (GPL571 / GPL3921), curated by CuMiDa",
+  "samples": 357,
+  "probes": 22277,
+  "patients": 189
+ }
+}

@@ -88,9 +88,14 @@ X_TEST_CSV: Path = ARTIFACTS_DIR / "X_test.csv"
 Y_TRAIN_CSV: Path = ARTIFACTS_DIR / "y_train.csv"
 Y_TEST_CSV: Path = ARTIFACTS_DIR / "y_test.csv"
 
+# Which patient each biopsy came from. Committed (see scripts/build_patient_map.py)
+# because the split depends on it and training must not need the network.
+PATIENTS_CSV: Path = Path(__file__).resolve().parents[2] / "data" / "patients.csv"
+
 MODEL_PATH: Path = ARTIFACTS_DIR / "model.joblib"
 METRICS_PATH: Path = ARTIFACTS_DIR / "metrics.json"
 EXAMPLES_PATH: Path = ARTIFACTS_DIR / "examples.json"  # real samples for the demo UI
+SPLIT_PATH: Path = ARTIFACTS_DIR / "split.json"        # which biopsy went where
 
 
 def ensure_artifacts_dir() -> Path:

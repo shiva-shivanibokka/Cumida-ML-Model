@@ -74,8 +74,24 @@ def comparison_frame(lr_metrics: dict, gb_metrics: dict) -> pd.DataFrame:
 
 
 def winner_by_f1(lr_metrics: dict, gb_metrics: dict) -> str:
+    """Pick a model, and be explicit about what happens when F1 cannot.
+
+    On this dataset the two models reach the *same confusion matrix* by getting
+    different biopsies wrong, so F1, precision and recall are identical to the
+    last digit and a bare ``>=`` would be choosing a winner on the direction of
+    a comparison operator. The
+    tie-break is ROC-AUC: it is threshold-free and reads the whole ranking, so
+    it can still distinguish two models that agree on every hard label.
+
+    Ties are not a quirk of this split. A 72-sample test set puts a 95%
+    bootstrap interval of roughly +/-0.05 around any F1 reported on it, which is
+    wider than the gap between any two models here. See
+    ``scripts/evaluate_honestly.py``.
+    """
+    if gb_metrics["f1"] != lr_metrics["f1"]:
+        return "Gradient Boosting" if gb_metrics["f1"] > lr_metrics["f1"] else "Logistic Regression"
     return (
         "Gradient Boosting"
-        if gb_metrics["f1"] >= lr_metrics["f1"]
+        if gb_metrics["roc_auc"] >= lr_metrics["roc_auc"]
         else "Logistic Regression"
     )

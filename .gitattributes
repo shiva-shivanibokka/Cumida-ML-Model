@@ -1,0 +1,15 @@
+# Normalise to LF in the repository. Windows checkouts otherwise commit CRLF,
+# which breaks Linux CI in ways that never look like an encoding problem: a
+# trailing carriage return turns a URL, a path or a JSON line into something a
+# shell or a parser silently rejects.
+* text=auto eol=lf
+
+# Binary: never translated, never diffed as text.
+*.joblib binary
+*.gz binary
+*.png binary
+*.jpg binary
+
+# Notebooks are JSON. Keep them LF so a re-execution on either platform
+# produces a diff of the cells that changed, not of every line.
+*.ipynb text eol=lf

@@ -1,0 +1,40 @@
+{
+  "stratified_split_leak": {
+    "leaked": 48,
+    "of": 72,
+    "share": 0.6666666666666666
+  },
+  "held_out_interval": {
+    "point": 0.958904109589041,
+    "ci_low": 0.9032258064516129,
+    "ci_high": 1.0,
+    "ci_width": 0.09677419354838712,
+    "n_test": 72,
+    "draws": 10000
+  },
+  "split_comparison": {
+    "random": {
+      "f1_mean": 0.9615935170728269,
+      "f1_std": 0.019495671115841367,
+      "auc_mean": 0.9761389961389961,
+      "patient_overlap": 0.7555555555555555
+    },
+    "grouped": {
+      "f1_mean": 0.9531869608369703,
+      "f1_std": 0.02735578726536947,
+      "auc_mean": 0.9679727346394014,
+      "patient_overlap": 0.0
+    },
+    "cost_of_grouping_f1": -0.008407,
+    "seeds": 10
+  },
+  "single_probe_ceiling": {
+    "best_probe": "207804_s_at",
+    "best_auc": 0.9799409844299347,
+    "probes_over_95": 108,
+    "probes_over_90": 757,
+    "median_auc": 0.6363636363636364,
+    "n_probes": 22277
+  },
+  "model_type": "Gradient Boosting"
+}

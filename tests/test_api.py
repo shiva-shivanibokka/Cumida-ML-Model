@@ -90,7 +90,7 @@ def test_model_info_lists_expected_genes(client):
 
 
 def test_predict_returns_label_and_probability(client):
-    r = client.post("/predict", json={"features": {g: 5.0 for g in GENES}})
+    r = client.post("/predict", json={"features": dict.fromkeys(GENES, 5.0)})
     assert r.status_code == 200
     body = r.json()
     assert body["prediction"] in {config.CLASS_POS, config.CLASS_NEG}
@@ -110,7 +110,7 @@ def test_predict_emits_no_feature_name_warning(client):
     trigger it — this passes only because serve.py builds a named DataFrame."""
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        r = client.post("/predict", json={"features": {g: 5.0 for g in GENES}})
+        r = client.post("/predict", json={"features": dict.fromkeys(GENES, 5.0)})
     assert r.status_code == 200
     offending = [str(w.message) for w in caught if "feature names" in str(w.message)]
     assert not offending, offending

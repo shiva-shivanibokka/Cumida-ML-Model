@@ -1,0 +1,259 @@
+/* A microarray readout. The palette is the assay's own: a divergent scale from
+   under-expressed to over-expressed, on a ground with enough green in it to
+   read as tissue rather than as a generic dark dashboard. */
+
+:root {
+  --ground: #f6f7f4;
+  --panel: #ffffff;
+  --sunk: #eef0eb;
+  --line: #d8ddd4;
+  --ink: #141a16;
+  --muted: #5b665e;
+  --faint: #8a958d;
+
+  /* the heatmap poles, and therefore the two classes */
+  --cold: #2f7fa8;   /* under-expressed / normal tissue */
+  --hot: #c2453c;    /* over-expressed / carcinoma */
+  --mid: #e7e4dc;
+
+  --accent: #1d6b57;
+  --ok: #2f7d54;
+  --warn: #9a6318;
+
+  --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --pad: clamp(1.1rem, 5vw, 3rem);
+  --radius: 3px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0e1310;
+    --panel: #151b17;
+    --sunk: #101511;
+    --line: #263029;
+    --ink: #e8efe9;
+    --muted: #93a098;
+    --faint: #6b7871;
+    --cold: #59b0d6;
+    --hot: #e8695e;
+    --mid: #2a322c;
+    --accent: #58c39f;
+    --ok: #62c48c;
+    --warn: #d3a054;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #0e1310;
+  --panel: #151b17;
+  --sunk: #101511;
+  --line: #263029;
+  --ink: #e8efe9;
+  --muted: #93a098;
+  --faint: #6b7871;
+  --cold: #59b0d6;
+  --hot: #e8695e;
+  --mid: #2a322c;
+  --accent: #58c39f;
+  --ok: #62c48c;
+  --warn: #d3a054;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell { max-width: 1000px; margin: 0 auto; padding-inline: var(--pad); }
+
+/* --- masthead ------------------------------------------------------------ */
+.masthead {
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.masthead .shell {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap; padding-block: 1rem;
+}
+.wordmark { display: flex; align-items: center; gap: .6rem; }
+.wordmark strong { font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
+.byline { color: var(--muted); font-size: .8rem; }
+.byline a { color: inherit; }
+
+/* --- hero ---------------------------------------------------------------- */
+.hero { padding-block: clamp(2rem, 6vw, 3.4rem) 1.4rem; }
+.eyebrow {
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--accent); margin: 0 0 .8rem;
+}
+h1 {
+  font-size: clamp(1.8rem, 4.6vw, 2.9rem); font-weight: 600; line-height: 1.1;
+  letter-spacing: -.025em; margin: 0 0 .8rem; text-wrap: balance; max-width: 20ch;
+}
+.lede { color: var(--muted); max-width: 62ch; margin: 0 0 1.2rem; font-size: 1.02rem; }
+.lede strong { color: var(--ink); font-weight: 600; }
+
+.runs-here {
+  display: inline-flex; align-items: center; gap: .5rem;
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: .3rem .8rem .3rem .5rem; font-size: .8rem; color: var(--muted);
+  background: var(--panel);
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+
+/* --- panels -------------------------------------------------------------- */
+section { padding-block: clamp(1.6rem, 4vw, 2.6rem); }
+section + section { border-top: 1px solid var(--line); }
+h2 {
+  font-size: 1.15rem; font-weight: 600; margin: 0 0 .3rem; letter-spacing: -.01em;
+}
+.sub { color: var(--muted); margin: 0 0 1.4rem; max-width: 66ch; }
+
+.panel {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 1.1rem;
+}
+
+/* --- biopsy picker ------------------------------------------------------- */
+.picker { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.1rem; }
+.chip {
+  font-family: var(--mono); font-size: .74rem; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+  border-radius: 999px; padding: .28rem .7rem; display: inline-flex;
+  align-items: center; gap: .4rem;
+}
+.chip:hover { border-color: var(--faint); color: var(--ink); }
+.chip[aria-pressed="true"] { border-color: currentColor; color: var(--ink); background: var(--sunk); }
+.chip .tag { width: 6px; height: 6px; border-radius: 50%; }
+.chip .tag.hcc { background: var(--hot); }
+.chip .tag.normal { background: var(--cold); }
+.chip.shuffle { color: var(--accent); }
+
+/* --- heatmap ------------------------------------------------------------- */
+.readout { display: grid; gap: 1.1rem; }
+.rowlabel {
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--faint); margin-bottom: .45rem;
+}
+.heat {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+  gap: 3px;
+}
+.gene { display: grid; gap: 3px; }
+.swatch {
+  height: 42px; border-radius: 2px; display: grid; place-items: center;
+  font-family: var(--mono); font-size: .6rem; color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+}
+.swatch.silent { opacity: .28; }
+.genename {
+  font-family: var(--mono); font-size: .58rem; color: var(--faint);
+  text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.scale {
+  display: flex; align-items: center; gap: .5rem; margin-top: .7rem;
+  font-family: var(--mono); font-size: .66rem; color: var(--faint);
+}
+.scalebar {
+  height: 7px; flex: 1; border-radius: 2px; max-width: 220px;
+  background: linear-gradient(90deg, var(--cold), var(--mid), var(--hot));
+}
+
+/* --- verdicts ------------------------------------------------------------ */
+.verdicts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: .9rem; }
+.verdict { border: 1px solid var(--line); border-radius: var(--radius); padding: .9rem 1rem; background: var(--panel); }
+.verdict .who {
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--faint); display: flex;
+  justify-content: space-between; align-items: center; gap: .5rem;
+}
+.crown { color: var(--accent); text-transform: none; letter-spacing: 0; }
+.call { font-size: 1.25rem; font-weight: 600; margin: .35rem 0 .1rem; letter-spacing: -.015em; }
+.call.hcc { color: var(--hot); }
+.call.normal { color: var(--cold); }
+.against { font-size: .82rem; color: var(--muted); }
+.against .ok { color: var(--ok); }
+.against .no { color: var(--warn); }
+.meter { height: 6px; background: var(--sunk); border-radius: 999px; margin: .7rem 0 .35rem; position: relative; overflow: hidden; }
+.meter i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--cold), var(--hot)); }
+.pval { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
+
+.agree {
+  margin-top: .9rem; font-size: .86rem; color: var(--muted);
+  border-left: 2px solid var(--accent); padding-left: .7rem;
+}
+
+/* --- figures / stats ----------------------------------------------------- */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .9rem; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: .8rem .9rem; }
+.stat .n { font-family: var(--mono); font-size: 1.4rem; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.stat .l { font-size: .78rem; color: var(--muted); margin-top: .15rem; }
+
+table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.scroller { overflow-x: auto; }
+th, td { text-align: right; padding: .45rem .6rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); font-weight: 500; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tr.win td { background: var(--sunk); }
+
+.note {
+  font-size: .86rem; color: var(--muted); margin-top: 1rem;
+  border-left: 2px solid var(--line); padding-left: .8rem;
+}
+.note strong { color: var(--ink); }
+
+/* --- interval ------------------------------------------------------------ */
+.interval { margin: 1rem 0 .4rem; }
+.track { position: relative; height: 34px; }
+.track .rail { position: absolute; left: 0; right: 0; top: 16px; height: 2px; background: var(--line); }
+/* colour-mix keeps the band legible on either ground: --sunk against --panel is
+   a five-value difference in the dark palette, i.e. no band at all. */
+.track .band {
+  position: absolute; top: 11px; height: 12px; border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.track .tick { position: absolute; top: 4px; width: 3px; height: 26px; background: var(--ink); border-radius: 2px; }
+.track .other {
+  position: absolute; top: 12px; width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid var(--hot); background: var(--panel); transform: translateX(-5px);
+}
+.track .other.grouped { border-color: var(--cold); }
+.legend { display: flex; flex-wrap: wrap; gap: .1rem 1.1rem; font-size: .76rem; color: var(--muted); margin-top: .5rem; }
+.legend span { display: inline-flex; align-items: center; gap: .35rem; }
+.legend i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--hot); }
+.legend i.grouped { border-color: var(--cold); }
+.legend i.point { width: 3px; height: 14px; border-radius: 2px; border: 0; background: var(--ink); }
+.axis { display: flex; justify-content: space-between; font-family: var(--mono); font-size: .66rem; color: var(--faint); }
+
+/* --- weights ------------------------------------------------------------- */
+.bars { display: grid; gap: .3rem; }
+.bar { display: grid; grid-template-columns: 118px 1fr 62px; align-items: center; gap: .6rem; font-size: .8rem; }
+.bar .g { font-family: var(--mono); font-size: .72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.bar .t { background: var(--sunk); height: 15px; border-radius: 2px; position: relative; }
+.bar .t i { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+.bar .v { font-family: var(--mono); font-size: .72rem; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bar.silent .g, .bar.silent .v { color: var(--faint); }
+
+.foot { border-top: 1px solid var(--line); padding-block: 1.6rem 2.6rem; color: var(--muted); font-size: .86rem; }
+.foot a { color: var(--accent); }
+.foot p { margin: 0 0 .5rem; max-width: 72ch; }
+
+:where(a):focus-visible, :where(button):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

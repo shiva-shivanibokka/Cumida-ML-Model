@@ -8,13 +8,19 @@ version = "1.0.0"
 description = "Liver HCC classification from GSE14520 microarray gene expression"
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.9"
+# 3.11 is the floor the test matrix actually covers; claiming 3.9 was untested.
+requires-python = ">=3.11"
 # Core runtime: everything needed to train the model AND serve a prediction.
 # Kept deliberately lean so the serving image (`.[serve]`) stays small.
 dependencies = [
     "pandas>=1.5",
     "numpy>=1.23",
-    "scikit-learn>=1.1",
+    # Upper bound is deliberate. LogisticRegression's `penalty=` is deprecated
+    # in 1.8 and removed in 1.10, and the tuned model is specified with it. The
+    # replacement (`l1_ratio=1`) is a silent no-op on <1.8 -- it fits L2 while
+    # looking like L1 -- so there is no single spelling that is correct across
+    # the whole range. Declaring the ceiling beats discovering it.
+    "scikit-learn>=1.1,<1.10",
     "joblib>=1.2",
 ]
 
@@ -27,7 +33,11 @@ train = ["scikit-optimize>=0.9", "matplotlib>=3.5", "seaborn>=0.12"]
 dev = ["pytest>=7.0", "httpx>=0.24"]
 
 [project.scripts]
-liver-hcc-train = "train:main"
+# Points into the package, not at the repo-root train.py. The previous target
+# (`train:main`) was never packaged by `packages = ["liver_hcc"]`, so an
+# installed console script raised ModuleNotFoundError on every invocation --
+# invisible in editable mode, where the repo root is already importable.
+liver-hcc-train = "liver_hcc.train:main"
 
 [tool.setuptools]
 packages = ["liver_hcc"]

@@ -1,88 +1,69 @@
-# Deploying the API
+# Deploying
 
-The FastAPI service ships as a self-contained Docker image (the trained model is
-baked in), so it runs on any container platform. This project is deployed on
-**Google Cloud Run**; a Fly.io path is included as an alternative.
+There are two artifacts here and only one of them is hosted.
 
-**Live:** https://liver-hcc-579593244955.us-central1.run.app
+## The demo page — hosted, static, free
 
-## Prerequisites
+`web/` is a Next.js static export. Both trained models are exported as parameters
+(`scripts/export_web_artifacts.py`) and evaluated in the browser by `web/lib/model.ts`, so
+the page has **no backend at all** — it is a folder of files.
 
-1. A trained model exists: `python train.py` (creates `artifacts/model.joblib`,
-   which is committed, so this is only needed if you retrain).
-2. The image respects `$PORT` (Cloud Run injects `8080`); see the `Dockerfile`.
-
----
-
-## Google Cloud Run (primary)
-
-Cloud Run builds from source via **Cloud Build** — no local Docker required — and
-gives a permanent `*.run.app` URL on a generous perpetual free tier (2M
-requests/month, scales to zero).
-
-### One-time project setup
+- **Live:** <https://liver-hcc.vercel.app>
+- **Host:** Vercel, git-connected, root directory `web`. Every push to `main` redeploys.
 
 ```bash
-gcloud auth login
-gcloud projects create liver-hcc-portfolio --name "Liver HCC Classifier"
-gcloud billing projects link liver-hcc-portfolio --billing-account <YOUR_BILLING_ID>
-gcloud config set project liver-hcc-portfolio
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+cd web
+npm ci
+npm run check:golden     # the browser must still reproduce scikit-learn
+npm run build            # -> web/out/
 ```
 
-(`gcloud billing accounts list` shows your billing account id.)
+### Why it is not a hosted API
 
-### Deploy
+An earlier version of this project ran the FastAPI service on Google Cloud Run, under a free
+trial with an expiry date. That is the failure mode a portfolio link cannot afford: the trial
+lapses, the service stops, and a recruiter clicking the link sees nothing. It also answered
+cold requests in ~18 seconds.
+
+Neither model needs a server. Logistic regression is a dot product behind a sigmoid; the
+gradient booster is 180 depth-3 trees. Running them client-side is exact — CI holds the
+TypeScript to scikit-learn's own answers on all 72 held-out biopsies, currently agreeing to
+6e-13 — and removes the host, the cold start and the expiry in one move.
+
+## The API — local and Docker
+
+`serve.py` is the serving layer: typed request/response schemas, structured JSON logging of
+every prediction, a `/health` probe, and OpenAPI docs. It runs locally or in a container and
+is exercised by `tests/test_api.py` in CI. It is not publicly hosted.
 
 ```bash
-gcloud run deploy liver-hcc \
-  --source . \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --memory 512Mi --cpu 1
+uvicorn liver_hcc.serve:app --reload          # http://localhost:8000/docs
+
+docker build -t liver-hcc .                   # model baked into the image
+docker run -p 8000:8000 liver-hcc
 ```
 
-`.gcloudignore` keeps the 134 MB raw CSV out of the upload. The command builds the
-Dockerfile, pushes to Artifact Registry, deploys, and prints the service URL.
-
-### Verify
+The image installs only `.[serve]` — pandas, numpy, scikit-learn, joblib, fastapi, uvicorn —
+and deliberately not the plotting or tuning libraries the runtime never imports. It listens
+on `$PORT` when a platform provides one, so it will run on any container host if you ever
+want it to.
 
 ```bash
-URL=https://liver-hcc-579593244955.us-central1.run.app   # your URL
-curl $URL/health
-curl $URL/model                                          # the 20 gene ids it expects
-# interactive docs: $URL/docs
+curl localhost:8000/health
+curl localhost:8000/model                      # the exact genes it expects
+curl -X POST localhost:8000/predict -H 'Content-Type: application/json' \
+     -d '{"features": {"200910_at": 8.9, "...": 0.0}}'
 ```
 
-### Operations
+## Regenerating what is committed
 
-- **Logs** (structured JSON prediction events): `gcloud run services logs read liver-hcc --region us-central1`
-- **Redeploy after retraining:** `python train.py && gcloud run deploy liver-hcc --source . --region us-central1`
-- **Cost:** `--min-instances 0` (Cloud Run default) means it sleeps when idle; first
-  request after idle cold-starts for a few seconds.
-- **Roll back:** `gcloud run services update-traffic liver-hcc --to-revisions <REV>=100 --region us-central1`
+The artifacts are small and committed so the repo is demo-able without the 128 MB dataset.
+Each generator has a `--check` mode that fails instead of overwriting, and CI runs the one
+that needs no dataset.
 
----
-
-## Fly.io (alternative)
-
-The repo includes a `fly.toml`. Note Fly's current new-account trial is time-limited.
-
-```bash
-# Windows install: iwr https://fly.io/install.ps1 -useb | iex
-fly auth login
-fly apps create <unique-name>       # then set app = "<unique-name>" in fly.toml
-fly deploy --remote-only            # remote build, no local Docker
-```
-
-`fly.toml` sets scale-to-zero (`auto_stop_machines = "stop"`,
-`min_machines_running = 0`) and a `/health` check. Logs: `fly logs`.
-
----
-
-## For the resume
-
-The live URL + `$URL/docs` demonstrate: containerization, source-to-Cloud-Run
-build via Cloud Build, a health-checked deployment, scale-to-zero cost awareness,
-structured logging/observability, and a versioned model artifact — the
-production-deployment gap most student portfolios miss.
+| Command | Writes | Needs the dataset? |
+|---|---|---|
+| `python scripts/build_patient_map.py` | `data/patients.csv` | yes (+ network once) |
+| `python train.py` | `artifacts/model.joblib`, `metrics.json`, `examples.json`, `split.json` | yes |
+| `python scripts/evaluate_honestly.py` | `artifacts/honesty.json` | yes |
+| `python scripts/export_web_artifacts.py` | `web/public/data/*.json` | **no** — runs in CI |

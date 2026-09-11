@@ -1,46 +1,55 @@
 {
   "logistic_regression": {
-    "f1": 0.9577464788732394,
-    "roc_auc": 0.9961389961389961,
-    "precision": 1.0,
-    "recall": 0.918918918918919,
+    "f1": 0.958904109589041,
+    "roc_auc": 0.9683641975308642,
+    "precision": 0.9459459459459459,
+    "recall": 0.9722222222222222,
     "confusion": {
-      "tp": 34,
-      "fn": 3,
-      "fp": 0,
-      "tn": 35
+      "tp": 35,
+      "fn": 1,
+      "fp": 2,
+      "tn": 34
     },
-    "cv_f1": 0.9685313517575354,
+    "cv_f1": 0.9714153642967203,
     "best_params": {
-      "clf__C": 1,
+      "clf__C": 0.1,
       "clf__penalty": "l1",
-      "rfe__n_features_to_select": 20
-    },
-    "n_genes": 20
-  },
-  "gradient_boosting": {
-    "f1": 0.9428571428571428,
-    "roc_auc": 0.984169884169884,
-    "precision": 1.0,
-    "recall": 0.8918918918918919,
-    "confusion": {
-      "tp": 33,
-      "fn": 4,
-      "fp": 0,
-      "tn": 35
-    },
-    "cv_f1": 0.9647651179913016,
-    "best_params": {
-      "clf__learning_rate": 0.010050391649084809,
-      "clf__max_depth": 3,
-      "clf__n_estimators": 54,
-      "clf__subsample": 0.5171795625661352,
       "rfe__n_features_to_select": 10
     },
     "n_genes": 10
   },
-  "winner": "Logistic Regression",
+  "gradient_boosting": {
+    "f1": 0.958904109589041,
+    "roc_auc": 0.9891975308641976,
+    "precision": 0.9459459459459459,
+    "recall": 0.9722222222222222,
+    "confusion": {
+      "tp": 35,
+      "fn": 1,
+      "fp": 2,
+      "tn": 34
+    },
+    "cv_f1": 0.9650125313283209,
+    "best_params": {
+      "clf__learning_rate": 0.048505889047947094,
+      "clf__max_depth": 3,
+      "clf__n_estimators": 180,
+      "clf__subsample": 0.5,
+      "rfe__n_features_to_select": 20
+    },
+    "n_genes": 20
+  },
+  "winner": "Gradient Boosting",
   "n_train": 285,
   "n_test": 72,
-  "n_probes_after_label_free_reduction": 18608
+  "n_probes": 22277,
+  "n_probes_after_label_free_reduction": 18580,
+  "split": {
+    "strategy": "StratifiedGroupKFold, grouped by patient",
+    "n_patients_total": 189,
+    "n_patients_paired": 165,
+    "n_patients_train": 151,
+    "n_patients_test": 38,
+    "patients_on_both_sides": 0
+  }
 }

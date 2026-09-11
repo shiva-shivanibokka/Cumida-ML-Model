@@ -37,8 +37,10 @@ package is the source of truth.
 
 ## Data flow
 
-1. **Load & split** (`data.py`) — read the CSV, drop the sample-id column,
-   stratified 80/20 train/test split with a fixed seed.
+1. **Load & split** (`data.py`) — read the CSV, look up the patient behind each
+   biopsy (`data/patients.csv`), then a **patient-grouped**, class-stratified
+   80/20 split with a fixed seed. The sample-id column is dropped only after the
+   patient lookup, because it is what the lookup keys on. See ADR-005.
 2. **Label-free reduction** (`features.py`) — zero-variance filter, high-null
    filter + median impute, and a **raw-scale** variance filter. None use the
    target, so they run once on the training set without leaking anything.
@@ -49,7 +51,11 @@ package is the source of truth.
 4. **Deploy** — the genes RFE chose are used to fit a compact
    `StandardScaler → classifier` model on the full training set. This is what's
    saved and served, so the API takes ~30 gene values instead of 22,277.
-5. **Serve** (`serve.py`) — FastAPI loads the bundle and answers `/predict`.
+5. **Serve** (`serve.py`) — FastAPI loads the bundle and answers `/predict`,
+   locally or in a container.
+6. **Publish** (`scripts/export_web_artifacts.py`) — the fitted parameters are
+   exported as JSON and evaluated in the browser by `web/lib/model.ts`, so the
+   public demo has no backend. See ADR-006.
 
 ---
 
@@ -130,3 +136,64 @@ load is per-request JSON (de)serialization, not inference — batching the
   tiny synthetic model, so the suite runs without the dataset or a real train.
 
 Run with `pytest`.
+
+
+---
+
+## ADR-005: Group the train/test split by patient
+
+**Status:** accepted (supersedes the stratified-only split)
+
+**Context.** GSE14520 is a paired study: 165 of its 189 patients contributed both a
+tumour biopsy and a matched non-tumour biopsy from the same liver. A split
+stratified on the label alone is blind to that. Measured on the split this project
+used to make, **48 of 72 held-out biopsies (67%) had their own patient's opposite
+tissue in the training set**, so the model had seen that liver already, labelled
+the other way.
+
+**Decision.** Split with `StratifiedGroupKFold` on the patient id, which keeps a
+patient's biopsies together while holding the class balance —
+`train_test_split(stratify=...)` cannot do both. `make_split` raises rather than
+running ungrouped. The patient map is recovered from GEO's series matrices
+(`!Sample_source_name_ch1`, e.g. `LCS-039A` / `LCS-039B`) and committed, because
+the CuMiDa CSV does not carry it.
+
+**Consequences.** Grouping costs about **0.008 F1** averaged over ten splits —
+inside the seed-to-seed spread — because the tumour/normal signal is large enough
+that patient identity adds little. The variance *increases*, which is what an
+honest evaluation looks like. The cost is measured rather than assumed:
+`scripts/evaluate_honestly.py` runs the identical pipeline both ways.
+
+**Alternatives rejected.** Leaving it and noting it in the limitations — the claim
+"72 samples the models never saw" would still have been false as written. Dropping
+one biopsy per patient — throws away half the data to fix a leak that grouping
+fixes for free.
+
+---
+
+## ADR-006: Run the model in the browser instead of hosting an API
+
+**Status:** accepted (supersedes the Cloud Run deployment)
+
+**Context.** The public demo used to call a FastAPI service on Google Cloud Run,
+under a free trial with an expiry date, answering cold requests in ~18 seconds. A
+portfolio link that stops working is worse than no link.
+
+**Decision.** Export the fitted parameters and evaluate them client-side. Logistic
+regression is a dot product behind a sigmoid; the gradient booster is 180 depth-3
+trees, which is a walk down 180 short paths. `web/lib/model.ts` implements both in
+about forty lines, and the site is a static export.
+
+**Consequences.** No host, no cold start, nothing to expire, and the privacy story
+stops being a promise about a server. The risk moves to *correctness*: a
+reimplementation can silently disagree with the model it claims to be. That is
+mitigated by golden fixtures — `golden.json` holds scikit-learn's own probabilities
+for all 72 held-out biopsies, and CI re-predicts them **with the exact module the
+page ships**, currently agreeing to 6e-13. The check is not theatre: making the
+module read gene order from sorted JSON keys rather than the fitted column order
+moves one biopsy from 0.957 to 0.477 and flips its verdict.
+
+**Alternatives rejected.** Hosting the API elsewhere — every free tier available
+either needs a card or expires, and the demo does not need a server at all.
+Shipping only the smaller model — the two disagree on two biopsies, which is the
+most interesting thing the comparison found, so the page shows both.

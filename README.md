@@ -1,150 +1,154 @@
 # Liver Cancer Classification — Microarray Gene Expression ML
 
-> [!IMPORTANT]
-> **The hosted demo is temporary.** This project's backend runs on Google Cloud
-> Run under a Google Cloud free trial that ends **around 19 September 2026**.
-> When the trial closes the service is stopped, and every `run.app` link below
-> stops responding.
->
-> Nothing in this repository depends on that. The code, tests and results are
-> complete, and the instructions below run the whole thing locally.
+**An end-to-end ML system that classifies liver biopsies as hepatocellular carcinoma (HCC)
+or normal tissue from 22,277-probe microarray gene expression — built to be defensible
+rather than impressive, with the split, the error bars and the baseline reported next to
+the score.**
 
+Built by Shivani Bokka.
 
-> ### Recruiter TL;DR
-> - **What it is:** an end-to-end ML system that classifies liver biopsies as cancer
->   (HCC) or healthy from 22,277-probe microarray gene expression, served as a live API
->   with an interactive browser demo.
-> - **Hardest problem solved:** eliminated **feature-selection leakage** by moving
->   recursive feature elimination *inside* cross-validation — closing a 15-point
->   CV-vs-test gap so the reported scores are honest and defensible.
-> - **Result:** **0.958 test F1 / 0.996 ROC-AUC**, **69/72** held-out biopsies correct
->   with **zero false positives**, deployed on **Google Cloud Run**.
+**Try it: <https://liver-hcc.vercel.app>** — pick a held-out biopsy and both models run
+**in your browser**. There is no backend.
 
 [![CI](https://github.com/shiva-shivanibokka/Cumida-ML-Model/actions/workflows/ci.yml/badge.svg)](https://github.com/shiva-shivanibokka/Cumida-ML-Model/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](pyproject.toml)
 
-Classify liver tissue as **Hepatocellular Carcinoma (HCC)** or **normal** from
-Affymetrix microarray gene-expression profiles (GEO study **GSE14520**: 357
-samples × 22,277 gene probes). The project takes a classic high-dimensional,
-small-sample biology problem all the way from raw data to a **served, containerised
-model** — with the machine-learning methodology done carefully enough to defend
-in an interview.
+---
 
-> **In one line:** a reproducible, leakage-free ML pipeline (Logistic Regression &
-> Gradient Boosting) reducing 22,277 genes to ~20, wrapped in a tested Python
-> package and a FastAPI + Docker serving layer, runnable locally or on Colab.
+### Recruiter TL;DR
 
-**🔴 Live demo (Google Cloud Run):** **https://liver-hcc-579593244955.us-central1.run.app**
-
-Open it and click a real held-out biopsy (or draw a random one): its 20 genes render as
-a live **expression heatmap**, then the model returns a verdict and a P(HCC) confidence
-meter. The page also shows the held-out confusion matrix and the genes the model weights
-most. Also exposes the interactive
-[API docs](https://liver-hcc-579593244955.us-central1.run.app/docs).
-*(Scales to zero, so the first request may cold-start for a few seconds.)*
+- **What it is** — a reproducible pipeline from a 357 × 22,277 gene-expression matrix to a
+  trained, tested, served model, plus a static demo page that runs that model client-side.
+- **Hardest problem solved** — the evaluation, twice. First, **feature-selection leakage**:
+  recursive feature elimination moved *inside* cross-validation. Then the one that actually
+  changed the numbers — **patient leakage**: GSE14520 is a paired study, and **48 of the 72
+  "held-out" biopsies had their own patient's opposite tissue sitting in the training set**.
+- **Result** — **F1 0.9589, ROC-AUC 0.9892** on a patient-grouped held-out set, *and* the
+  context that makes it meaningful: a 95% interval of **[0.903, 1.000]**, and a
+  **single probe with no model at all scoring AUC 0.980**.
 
 ---
 
-## Highlights
+## The headline number, and what it is worth
 
-- **Leakage-free by construction.** Supervised feature selection (RFE) runs
-  *inside* every cross-validation fold via a scikit-learn `Pipeline`, so reported
-  CV scores are honest — CV F1 (0.969) now tracks test F1 (0.958) instead of the
-  15-point gap the earlier SMOTE-based version had.
-- **Runs anywhere.** One config module auto-detects Colab vs local; the dataset is
-  read straight from the repo when running locally, from Drive on Colab. No path
-  editing.
-- **Not just a notebook.** Core logic lives in an installable package
-  (`src/liver_hcc/`) with unit tests, a training CLI, a FastAPI service with
-  structured logging, and a Dockerfile.
-- **Documented decisions.** `docs/architecture.md` records the design choices as
-  ADRs (Architecture Decision Records).
+Held-out test set: 72 biopsies from 38 patients, none of whom appear in training.
 
-## Results
-
-Held-out test set (72 samples the models never saw during training or tuning):
-
-| Model | Test F1 | ROC-AUC | Precision | Recall | CV F1 | Genes used |
+| Model | Test F1 | ROC-AUC | Precision | Recall | CV F1 | Genes |
 |---|---|---|---|---|---|---|
-| **Logistic Regression** (tuned) | **0.9577** | **0.9961** | 1.0000 | 0.9189 | 0.9685 | 20 |
-| Gradient Boosting (tuned) | 0.9429 | 0.9842 | 1.0000 | 0.8919 | 0.9648 | 10 |
+| Logistic Regression | 0.9589 | 0.9684 | 0.9459 | 0.9722 | **0.9714** | 10 |
+| **Gradient Boosting** (shipped) | 0.9589 | **0.9892** | 0.9459 | 0.9722 | 0.9650 | 20 |
 
-**Winner: Logistic Regression.** On this clean, strongly-separable dataset the
-simple linear model edges out the ensemble — a useful reminder that more complex
-isn't automatically better. Both models achieve **perfect precision** (zero
-normal samples misclassified as cancer); the difference is recall.
+Three things belong next to that table, and leaving them out is how this kind of project
+gets oversold:
 
-Confusion matrices (positive class = HCC):
+**1. The two models are not separable by F1 — and not identical either.** They reach the
+*same confusion matrix* (TP 35, FN 1, FP 2, TN 34) by getting **different biopsies wrong**.
+Each is wrong three times; they share only two of those mistakes, and they disagree on two
+biopsies outright. Identical summary statistics, different behaviour. Cross-validation, for
+its part, ranks them the other way round. The shipped model is Gradient Boosting on an
+explicit ROC-AUC tie-break — a stated rule, not a finding.
 
-| Model | TP | TN | FP | FN |
-|---|---|---|---|---|
-| Logistic Regression | 34 | 35 | 0 | 3 |
-| Gradient Boosting | 33 | 35 | 0 | 4 |
+**2. The test set is 72 samples, so the error bar is enormous.** Bootstrapping it 10,000
+times gives a 95% interval of **[0.9032, 1.0000]** — nearly 0.10 wide. One extra missed
+tumour moves the score further than the entire gap between the two models.
 
-Best hyperparameters — LR: `C=1, penalty=l1` on 20 RFE-selected genes.
-GB: `n_estimators=54, learning_rate=0.010, max_depth=3, subsample=0.52` on 10 genes.
+**3. The task is close to solved before any modelling.** Scoring each of the 22,277 probes
+on its own — one number, one threshold, no training — the best (`207804_s_at`) reaches
+**AUC 0.980**, and **108 probes clear 0.95 alone**. Tumour and adjacent normal liver differ
+enormously in expression. The work worth showing here is the methodology, not the fourth
+decimal place.
 
-> Numbers are produced by `python train.py` and written to `artifacts/metrics.json`
-> (committed), so they are reproducible, not hand-copied.
+All three are computed by [`scripts/evaluate_honestly.py`](scripts/evaluate_honestly.py)
+and committed to `artifacts/honesty.json`.
 
----
+## Patient leakage: the fix that mattered
+
+GSE14520 is a **paired** study. Of its 189 patients, **165 contributed both a tumour biopsy
+and a matched non-tumour biopsy from the same liver.** A split stratified on the label alone
+is blind to that, so it routinely puts one of a patient's two biopsies in training and the
+other in test.
+
+Measured on the split this project used to make:
+
+```
+ungrouped, stratified split : 48 of 72 held-out biopsies (67%) shared a patient with training
+patient-grouped split       : 0
+```
+
+The model had not seen those *samples*. It had seen those *livers*, labelled the other way.
+
+**Honest accounting: the leak was real but cheap.** Running the identical pipeline both ways
+over 10 splits, grouping costs **0.008 F1** — inside the seed-to-seed spread (±0.027). The
+tumour signal is large enough that knowing the patient adds little. It is fixed anyway,
+because "biopsies the model has never seen" has to be *true* rather than nearly true. Note
+that the spread *widens* once the leak is gone: the honest evaluation is the harder one.
+
+The pairing is not in the CuMiDa CSV — it lives in GEO's series matrix, as source names like
+`LCS-039A` / `LCS-039B` (same patient, A = tumour, B = non-tumour).
+[`scripts/build_patient_map.py`](scripts/build_patient_map.py) recovers it and commits
+`data/patients.csv`, so training needs no network. `data.make_split` **refuses to run
+without it**, and `tests/test_split.py` re-derives the patient sets from the committed split
+and fails if any patient straddles it — plus a test that the *ungrouped* split still leaks,
+so the guard cannot quietly become vacuous.
+
+## The data
+
+**Source: [CuMiDa](https://sbcb.inf.ufrgs.br/cumida)** — the Curated Microarray Database
+(Feltes et al., 2019) — file `Liver_GSE14520_U133A.csv`, which curates **GEO accession
+GSE14520** (platforms GPL571 and GPL3921, Affymetrix U133A). 357 biopsies × 22,277 probes,
+RMA-normalised, one row per sample with a `type` label.
+
+**This is not a file you can download from GEO.** GEO gives you CEL files or a series matrix
+with probes as rows and no label column; the sample × probe CSV with an `HCC`/`normal`
+column is CuMiDa's curation. Get it from CuMiDa (Liver → GSE14520 → U133A) and place it in
+the repo root. It is ~128 MB and gitignored.
+
+The patient map is built from GEO's series matrices, which *are* fetched from NCBI — that is
+the only part of this project that touches the network, and the result is committed.
 
 ## Architecture
 
-The four notebooks and the training CLI import the **same** package modules, so there
-is one implementation of every step. `train.py` produces small, committed artifacts
-(model + demo samples + metrics) that the FastAPI service bakes into a container and
-serves — locally, or on Cloud Run.
+The notebooks, the training CLI and the serving layer all import the **same package**, so
+there is one implementation of every step. Training writes small committed artifacts; the
+demo page is generated from those artifacts and runs the models client-side.
 
 ```mermaid
 flowchart TD
-    CSV[("Liver_GSE14520_U133A.csv<br/>357 × 22,277 probes")] --> DATA[data.py<br/>load · clean · split]
+    CSV[("CuMiDa Liver_GSE14520_U133A.csv<br/>357 × 22,277 probes")] --> DATA[data.py<br/>load · clean · <b>patient-grouped split</b>]
+    GEO[("GEO series matrices")] --> MAP[scripts/build_patient_map.py] --> PAT[["data/patients.csv"]] --> DATA
     DATA --> FEAT[features.py<br/>label-free reduction +<br/>leakage-free RFE pipeline]
     FEAT --> MODELS[models.py<br/>LR GridSearch ·<br/>GB BayesSearch]
-    MODELS --> TRAIN[train.py CLI]
-    TRAIN --> ART[["artifacts/<br/>model.joblib · metrics.json · examples.json"]]
-    ART --> SERVE[serve.py<br/>FastAPI]
-    SERVE --> EP["/ demo · /predict · /model · /health · /docs"]
-    SERVE --> DOCKER[Dockerfile<br/>model baked in] --> CLOUD[["Google Cloud Run<br/>(live)"]]
+    MODELS --> TRAIN[train.py]
+    TRAIN --> ART[["artifacts/<br/>model.joblib · metrics.json<br/>examples.json · split.json"]]
+    ART --> HON[scripts/evaluate_honestly.py<br/>interval · leak price · baseline]
+    HON --> ART
+    ART --> EXP[scripts/export_web_artifacts.py]
+    EXP --> WEB[["web/public/data/<br/>models · biopsies · golden"]]
+    WEB --> SITE[Next.js static export<br/><b>models run in the browser</b>]
+    ART --> SERVE[serve.py<br/>FastAPI · local/Docker]
     NB[["01–04 notebooks<br/>teaching narrative"]] -. import .-> FEAT
-    NB -. import .-> MODELS
-    EVAL[evaluate.py<br/>metrics · ROC] -.-> MODELS
 ```
 
-**Why this shape:** the notebooks are the *readable* narrative but delegate all logic to
-an installable package, so there's no copy-paste drift between "the notebook version" and
-"the real version." Supervised feature selection lives *inside* a scikit-learn `Pipeline`
-(not as a one-off pre-step) specifically so it is re-fit within every CV fold — the design
-decision that makes the reported scores trustworthy. Full reasoning is recorded as ADRs in
-[`docs/architecture.md`](docs/architecture.md).
+**Why the browser.** Both models are small and closed-form once fitted: logistic regression
+is a dot product behind a sigmoid, and the gradient booster is 180 depth-3 trees — a walk
+down 180 short paths. Exporting the fitted parameters and evaluating them in TypeScript is
+not an approximation of the model, it *is* the model. `web/lib/model.ts` does it in ~40
+lines, and CI re-predicts all 72 biopsies with that exact module and compares against
+scikit-learn:
 
-## Skills Demonstrated
+```
+$ npm run check:golden
+checked 144 predictions across 2 models
+largest disagreement with scikit-learn: 5.612e-13
+the browser reproduces scikit-learn.
+```
 
-Real capabilities this repo exercises (each is backed by code in the tree, not a claim):
+That check earns its place. Making the module read gene order from sorted JSON keys instead
+of the fitted column order — a plausible refactor — moves one biopsy from 0.957 to 0.477 and
+flips its verdict. The check catches it; nothing else would.
 
-- **Production ML deployment / MLOps** — a serving layer (`serve.py`) fully decoupled from
-  training/notebook code, with a reproducible `train.py` → versioned model artifact.
-- **Cloud deployment (Google Cloud Run)** — source-to-container build via Cloud Build, live
-  public endpoint, scale-to-zero.
-- **RESTful API design** — a FastAPI service with typed request/response schemas and a
-  documented endpoint surface (`/`, `/predict`, `/model`, `/health`, `/docs`).
-- **Containerization & Docker** — self-contained image with the model baked in and a
-  container healthcheck.
-- **Observability & monitoring** — structured JSON logging of every prediction and a
-  `/health` readiness probe.
-- **CI/CD** — GitHub Actions runs the test suite and an import check on every push/PR,
-  across Python 3.11 and 3.12.
-- **System design & architecture** — documented decisions/trade-offs as ADRs.
-- **Data engineering / feature pipeline** — raw 22,277-probe matrix → model-ready feature
-  set through staged, leakage-aware reduction.
-- **Automated testing** — `pytest` suite covering a leakage guard, a bug regression test,
-  and the API contract.
-- **Applied ML rigor** — leakage-free cross-validation, recursive feature elimination,
-  grid & Bayesian hyperparameter search, model interpretability, honest evaluation.
-- **Frontend for an ML demo** — a self-contained interactive page that calls the model live.
-
----
+The site is a folder of static files. No server, no cold start, nothing to expire.
 
 ## Repository structure
 
@@ -152,241 +156,139 @@ Real capabilities this repo exercises (each is backed by code in the tree, not a
 Cumida-ML-Model/
 ├── src/liver_hcc/            ← installable package (the single source of truth)
 │   ├── config.py             ← paths, constants, Colab/local auto-detection
-│   ├── data.py               ← load / clean / split
+│   ├── data.py               ← load / clean / patient-grouped split
 │   ├── features.py           ← label-free cleaning + leakage-free selection pipeline
 │   ├── models.py             ← LR & GB tuning, deployable-model builder
-│   ├── evaluate.py           ← metrics & ROC helpers
-│   └── serve.py              ← FastAPI serving app + interactive demo page
-├── 01_eda_loading.ipynb      ← EDA (imports from the package)
-├── 02_preprocessing.ipynb    ← label-free feature reduction + split
-├── 03_logistic_regression.ipynb
-├── 04_gradient_boosting.ipynb ← GB + model comparison
-├── train.py                  ← end-to-end training CLI -> artifacts/
-├── tests/                    ← pytest (leakage guard, bug regression, API contract)
-├── artifacts/                ← committed: model.joblib, metrics.json, examples.json
-├── docs/                     ← architecture.md (ADRs) + deploy.md (Cloud Run)
-├── Dockerfile                ← serving image (model baked in)
-├── fly.toml · .gcloudignore  ← deployment config (Cloud Run / Fly.io)
-├── pyproject.toml            ← package + dependencies
-└── requirements.txt
+│   ├── evaluate.py           ← metrics, and an explicit tie-break
+│   ├── serve.py              ← FastAPI service (local / Docker)
+│   └── train.py              ← the training CLI
+├── scripts/
+│   ├── build_patient_map.py  ← GEO → data/patients.csv  (--check)
+│   ├── evaluate_honestly.py  ← interval, leak price, baseline  (--check)
+│   └── export_web_artifacts.py ← artifacts → web/public/data  (--check)
+├── web/                      ← Next.js static export; models run client-side
+│   ├── lib/model.ts          ← the models, in TypeScript
+│   └── scripts/check-golden.ts ← re-predicts against scikit-learn's answers
+├── 01–04 *.ipynb             ← the teaching narrative
+├── train.py                  ← shim onto liver_hcc.train
+├── data/patients.csv         ← which patient each biopsy came from
+├── artifacts/                ← committed: model, metrics, demo samples, split, honesty
+├── tests/                    ← API contract, leakage guards, artifact agreement
+└── docs/                     ← architecture.md (ADRs)
 ```
-
-The notebooks are the **teaching narrative**; the package is the implementation.
-Both call the same functions, so there is one source of truth for every step.
-
----
 
 ## Quickstart
 
-### Option A — Local (recommended for this repo)
-
-You have the dataset CSV in the repo folder already.
-
 ```bash
-# 1. Install (editable) with the extras for the full workflow.
-#    serve = FastAPI/uvicorn/pydantic · train = plotting + Bayesian search · dev = pytest
 pip install -e ".[serve,train,dev]"
-# (Serving only? The lean install the Docker image uses is just: pip install ".[serve]")
 
-# 2. Train everything and write artifacts/ (model, metrics, splits)
-python train.py
-
-# 3. Run the tests
+python scripts/build_patient_map.py --fetch   # once: recovers patient ids from GEO
+python train.py                               # trains, writes artifacts/
+python scripts/evaluate_honestly.py           # interval, leak price, baseline
+python scripts/export_web_artifacts.py        # regenerates the site's data
 pytest
 
-# 4. Serve the trained model
-uvicorn liver_hcc.serve:app --reload
-# then: curl http://localhost:8000/health
+uvicorn liver_hcc.serve:app --reload          # the API, locally
+cd web && npm install && npm run dev          # the demo page, locally
 ```
 
-Everything auto-detects local mode — no path editing. Want a faster smoke test?
-`python train.py --gb-iters 5`.
-
-### Option B — Google Colab
-
-1. Upload the notebooks (and the dataset CSV to a Drive folder).
-2. In the first cell of any notebook, install the package (with the `train`
-   extra, which adds plotting + `scikit-optimize`) from your clone:
-   `!pip install -e "/content/Cumida-ML-Model[train]"`.
-3. Set the data location if it isn't the default:
-   `%env LIVER_HCC_DATA_DIR=/content/drive/MyDrive/your-folder`
-4. Run notebooks `01 → 02 → 03 → 04` in order.
-
-`config.mount_drive_if_colab()` mounts Drive automatically on Colab and does
-nothing locally.
-
-### How to get the data
-
-The raw file `Liver_GSE14520_U133A.csv` (~128 MB) is **gitignored** — too large for
-GitHub. It comes from NCBI GEO accession **GSE14520**, platform **GPL571**
-(Affymetrix Human Genome U133A 2.0 Array). Place it in the repo root (local) or
-your Drive folder (Colab).
-
----
+`python train.py --gb-iters 5` is a faster smoke test. Everything auto-detects Colab vs
+local; on Colab set `LIVER_HCC_DATA_DIR` and run notebooks `01 → 02 → 03 → 04`.
 
 ## The pipeline
 
-### Notebook 1 — EDA & loading
-Loads the raw CSV, confirms 357 samples / 22,277 numeric probes / zero missing
-values, visualises class balance (HCC 181 vs normal 176 — essentially balanced),
-per-class expression distributions of the most variable genes, a correlation
-heatmap, and the overall log-scale expression distribution. Saves
-`artifacts/liver_clean.csv`.
+**Notebook 1 — EDA.** 357 samples, 22,277 numeric probes, zero missing values, near-balanced
+classes (181 HCC / 176 normal). Saves `artifacts/liver_clean.csv` — **keeping the sample-id
+column**, because it is the only way to look up which patient a biopsy came from.
 
-### Notebook 2 — Label-free feature reduction
-Splits **first** (stratified 80/20, seed 42), then applies only **label-free**
-cleaning — zero-variance filter, high-null filter + median impute, and a
-**raw-scale** variance filter — reducing 22,277 → **18,608** probes. Supervised
-selection is deliberately *deferred* to the model notebooks to avoid selection
-leakage (see below). Saves the reduced train/test split.
+**Notebook 2 — label-free reduction.** Splits **first** (patient-grouped, 285/72), then
+applies only label-free cleaning: zero-variance filter, high-null filter + median impute, and
+a **raw-scale** variance filter, reducing 22,277 → 18,580 probes. Supervised selection is
+deliberately deferred to the model notebooks.
 
-### Notebook 3 — Logistic Regression
-Tunes `C`, `penalty`, **and the RFE feature count** with `GridSearchCV` over the
-leakage-free pipeline, evaluates on the test set, and plots the confusion matrix,
-ROC curve, and the top gene coefficients (positive = toward HCC).
+**Notebook 3 — Logistic Regression.** Tunes `C`, `penalty` **and the RFE feature count** with
+`GridSearchCV` over the leakage-free pipeline. Best: `C=0.1, penalty=l1` on 10 genes.
 
-### Notebook 4 — Gradient Boosting & comparison
-Same leakage-free pipeline, tuned with **Bayesian optimisation** (`BayesSearchCV`),
-then a head-to-head comparison against a freshly-tuned Logistic Regression on the
-identical split.
+**Notebook 4 — Gradient Boosting & comparison.** Same pipeline, `BayesSearchCV`, then a
+head-to-head on the identical split.
 
----
+A detail worth keeping: a plain logistic regression on **all 18,580 probes** scores F1
+0.9722 — *higher* than the tuned 10-gene model. Selection buys interpretability and a
+10-value API, not accuracy. On this test set that difference is one biopsy.
 
-## Serving the model
+## Serving
 
-`train.py` saves a compact `StandardScaler → classifier` model (trained on just
-the selected genes) to `artifacts/model.joblib`. The FastAPI app loads it and
-exposes:
-
-| Endpoint | Purpose |
-|---|---|
-| `GET /` | Interactive demo page — pick/draw a real biopsy, live heatmap + prediction |
-| `GET /health` | Liveness/readiness probe (used by Docker healthcheck) |
-| `GET /model` | Metadata: model type, class labels, and the exact genes it expects |
-| `POST /predict` | `{ "features": {gene_id: value, ...} }` → predicted class + P(HCC) |
-| `GET /docs` | Auto-generated interactive OpenAPI documentation |
-
-Every prediction is logged as a structured JSON line for observability.
+`serve.py` exposes `/health`, `/model`, `/predict` and `/docs`, with structured JSON logging
+of every prediction, and ships as a self-contained Docker image with the model baked in.
 
 ```bash
-# Local
 uvicorn liver_hcc.serve:app --reload
-
-# Docker (model is baked into the image)
-docker build -t liver-hcc .
-docker run -p 8000:8000 liver-hcc
+docker build -t liver-hcc . && docker run -p 8000:8000 liver-hcc
 ```
 
-**Deploy to the cloud:** the image is self-contained, so it runs on any container
-platform. This project is deployed on **Google Cloud Run** (source deploy via
-Cloud Build — no local Docker needed); a step-by-step walkthrough is in
-[`docs/deploy.md`](docs/deploy.md). A `fly.toml` is also included for Fly.io.
-
-Example request (gene ids come from `GET /model`):
-
-```bash
-# Fetch the full list of required gene ids from GET /model first.
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"features": {"200910_at": 8.9, "201293_x_at": 10.1, "204641_at": 6.2, ...}}'
-```
-
----
+**It is not publicly hosted, deliberately.** The interactive demo is the static page, which
+runs the same models in the browser and cannot go dark. An earlier version of this repo
+embedded a ~340-line copy of that demo inside `serve.py` and had it call `/predict`; two
+demos that must agree with one model is one demo too many, and the one that can be checked
+against the model is the one that stayed.
 
 ## Testing
 
 ```bash
-pytest
+ruff check . && pytest -q
+cd web && npm run check:golden && npm run typecheck && npm run build
 ```
 
-- `tests/test_features.py` — the raw-variance filter, a **regression test** proving
-  `VarianceThreshold` after scaling is a no-op (the original bug), and a leakage
-  guard that selection precedes the classifier in the pipeline.
-- `tests/test_api.py` — the `/`, `/health`, `/model`, and `/predict` contracts against a
-  tiny synthetic model (so tests run in milliseconds without the dataset), plus a
-  regression test that `/predict` stays warning-free (clean structured logs) and a
-  fallback test that the demo page still renders when no artifacts are present.
+- **`tests/test_split.py`** — no patient straddles the committed split; the *ungrouped*
+  split still leaks (so the guard is not vacuous); `make_split` refuses to run without
+  groups; an incomplete patient map raises rather than silently under-grouping.
+- **`tests/test_artifacts.py`** — the committed model reproduces the committed metrics on
+  the committed held-out biopsies. Every other test builds a synthetic model to stay fast;
+  a synthetic model structurally cannot check that claim.
+- **`tests/test_features.py`** — the raw-variance filter, a regression test proving
+  `VarianceThreshold` after scaling is a no-op (the original bug), and a leakage guard on
+  pipeline order.
+- **`tests/test_api.py`** — the `/`, `/health`, `/model`, `/predict` contracts, plus a
+  regression test that `/predict` stays warning-free.
+- **`web/scripts/check-golden.ts`** — the browser against scikit-learn, above.
 
-**CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `pytest` and an
-import check on every push and pull request, on Python 3.11 and 3.12.
+CI runs all of it on Python 3.11 and 3.12, plus the site build.
 
----
+One test is worth calling out because it changed the page. It originally asserted the two
+models return the same 72 predictions — reasonable, given byte-identical confusion matrices.
+It failed. The same counts are reachable by getting *different* biopsies wrong, and the
+page's headline had to be rewritten from "the same 72 answers" to "identical scores,
+different mistakes".
 
-## Methodology notes (a.k.a. what makes this defensible)
+## Methodology notes
 
-**1. Selection leakage — fixed.** Running RFE once on all training data and then
-cross-validating a model on the result lets each CV fold "see" its own labels
-through the feature set, inflating CV scores. Here, scaling + selection live
-inside a `Pipeline` that the search re-fits per fold, and the number of genes is
-a tuned hyperparameter. See `docs/architecture.md`, ADR-001.
+**1. Selection leakage — fixed.** RFE runs *inside* a `Pipeline` that the search re-fits per
+CV fold, with the number of genes tuned as a hyperparameter. See ADR-001.
 
-**2. VarianceThreshold on raw data — fixed.** `StandardScaler` forces every column
-to variance 1.0, so a variance threshold applied *after* scaling removes nothing.
-The original pipeline did exactly this and misread the "0 removed" result as clean
-data. The filter now runs on raw values (removing ~3,669 near-constant probes),
-and a regression test locks the behaviour in. See ADR-002.
+**2. Patient leakage — fixed.** See above, and `data.py`'s module docstring.
 
-**3. SMOTE removed.** An earlier version applied SMOTE to the ~50/50 balanced
-training set, which both was unnecessary and leaked synthetic neighbours across CV
-folds. Removing it is why CV and test scores now agree.
+**3. `VarianceThreshold` on raw data — fixed.** `StandardScaler` forces every column to
+variance 1.0, so a threshold applied *after* scaling removes nothing. The original pipeline
+did exactly that and read "0 removed" as clean data. See ADR-002.
 
-**4. F1 as the primary metric.** Although the classes are balanced, F1 separates
-precision and recall, which matter differently in a medical setting (a missed
-cancer vs a false alarm).
+**4. SMOTE removed.** Applied to an already-balanced training set, and it leaked synthetic
+neighbours across CV folds.
 
----
+**5. No warnings are suppressed.** An earlier version silenced sklearn's `FutureWarning` as
+harmless deprecation noise. The warning it hid was that `LogisticRegression(penalty=...)`
+— how the tuned model is specified — is removed in scikit-learn 1.10. `scikit-learn<1.10`
+is now pinned, so the ceiling is declared rather than discovered.
 
-## Libraries
+## Limitations
 
-Dependencies are split into extras in `pyproject.toml` so the serving image stays
-lean (it installs only the core + `serve` group — no plotting or tuning libraries):
-
-| Library | Purpose | Group |
-|---|---|---|
-| `pandas`, `numpy` | Data handling | core |
-| `scikit-learn` | Models, pipeline, selection, metrics | core |
-| `joblib` | Model serialisation | core |
-| `fastapi`, `uvicorn`, `pydantic` | Serving layer | `serve` |
-| `scikit-optimize` | `BayesSearchCV` for Gradient Boosting tuning | `train` |
-| `matplotlib`, `seaborn` | Plots (notebooks) | `train` |
-| `pytest`, `httpx` | Tests | `dev` |
-
----
-
-## Background — the biology (why this problem matters)
-
-**Hepatocellular Carcinoma (HCC)** is the most common primary liver cancer and a
-leading cause of cancer death worldwide, usually developing on top of cirrhosis
-from hepatitis B/C, alcohol, or fatty liver disease. Because it often develops
-silently, early molecular detection is valuable.
-
-**Gene expression profiling** measures which genes are switched on in a tissue.
-An Affymetrix microarray is a chip of thousands of DNA probes; the binding at each
-probe gives a numeric expression value per gene. When a cell becomes cancerous,
-its expression pattern shifts in detectable ways.
-
-**Why ML:** with 22,277 features and only 357 samples, this is a high-dimensional,
-small-sample problem. Individual statistical tests consider one gene at a time; ML
-finds *combinations* of genes that separate cancer from normal — the challenge
-being to do so without overfitting. **GSE14520** is well-suited to this: tumour
-and adjacent non-tumour tissue come from the same patients (a paired design),
-giving a clean, genuinely learnable signal.
-
----
-
-## Roadmap / Limitations
-
-Honest about what this is and isn't:
-
-- **Single cohort.** Results reflect one clean, paired-design study (GSE14520). External
-  validation on an independent cohort or a different microarray platform would test
-  whether the selected genes generalise — the natural next step.
-- **Probe IDs, not gene symbols.** The model uses Affymetrix probe IDs directly; mapping
-  them to gene symbols (e.g. via a GPL571 annotation) would improve biological readability.
-- **Educational, not clinical.** This is a portfolio/learning project, not a validated
-  diagnostic tool.
+- **Single cohort, and an easy one.** One curated benchmark of paired tumour/non-tumour
+  liver tissue. External validation on an independent cohort or platform is the real next
+  step; see the single-probe baseline above for why the score here is not the achievement.
+- **Probe IDs, not gene symbols.** Mapping via a GPL571 annotation would improve readability.
+- **72 test samples.** Every comparison on this page is quoted with that in mind.
+- **Educational, not clinical.** A portfolio project, not a validated diagnostic tool.
 
 ## License
 
-Released under the [MIT License](LICENSE) — free to use, modify, and distribute with
-attribution. The dataset (GEO **GSE14520**) is subject to its own NCBI GEO terms.
+Released under the [MIT License](LICENSE). The dataset is redistributed by CuMiDa and
+originates from GEO **GSE14520**; both carry their own terms.

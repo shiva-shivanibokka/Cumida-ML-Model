@@ -1,0 +1,22 @@
+# Pinned in CI (see .github/workflows/ci.yml). An unpinned linter installs
+# whatever shipped most recently, so whether the build is green depends on the
+# date it ran rather than on what was committed.
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
+
+[lint.per-file-ignores]
+# Notebooks are linted -- it found real unused imports -- but three rules are
+# about module structure that a notebook does not have:
+#   I001  import blocks are grouped under teaching comments; alphabetising
+#         them scrambles the lesson
+#   E402  a cell legitimately imports after the sys.path/setup line above it
+#   E702  `import sys; sys.path.insert(...)` on one line is the setup idiom
+#   E501  print/plot lines in teaching cells read better unwrapped
+"*.ipynb" = ["I001", "E402", "E702", "E501"]
+# Both of these must extend sys.path before importing the package, which is
+# exactly what E402 exists to catch everywhere else.
+"scripts/*.py" = ["E402"]
+"train.py" = ["E402"]
